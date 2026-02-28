@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react'
+import { useLocation } from 'react-router-dom'
 import api from '../services/api'
 import ContentList from '../components/ContentList'
 import ContentModal from '../components/ContentModal'
@@ -11,6 +12,8 @@ export default function Dashboard(){
   const [usersMap, setUsersMap] = useState({})
   const [filterStatus, setFilterStatus] = useState('Tümü')
   const [query, setQuery] = useState('')
+  const location = useLocation()
+  const [toast, setToast] = useState({ show:false, message:'', type:'success' })
 
   const fetchContents = async () => {
     setLoading(true)
@@ -34,10 +37,31 @@ export default function Dashboard(){
 
   useEffect(()=>{ fetchContents() }, [])
 
+  useEffect(()=>{
+    if(location.state?.message){
+      setToast({ show:true, message: location.state.message, type:'success' })
+      window.history.replaceState({}, document.title) // clear state so toast not shown again
+    }
+  }, [location])
+
+  useEffect(()=>{
+    if(!toast.show) return
+    const t = setTimeout(()=> setToast({ show:false, message:'', type:'success' }), 3000)
+    return ()=> clearTimeout(t)
+  }, [toast.show])
+
   const isAdmin = localStorage.getItem('isAdmin') === '1'
 
   const visibleContents = contents.filter(c=>{
-    if(filterStatus !== 'Tümü' && c.status !== filterStatus) return false
+    if(filterStatus !== 'Tümü'){
+      if(filterStatus === 'Onaylandı'){
+        if(!c.approved) return false
+      } else if(filterStatus === 'Onaylanmadı'){
+        if(c.approved) return false
+      } else if(c.status !== filterStatus){
+        return false
+      }
+    }
     if(query){
       const q = query.toLowerCase()
       return (c.company||'').toLowerCase().includes(q) || (c.content_info||'').toLowerCase().includes(q)
@@ -59,11 +83,18 @@ export default function Dashboard(){
           <option>Planlandı</option>
           <option>Yapılıyor</option>
           <option>Paylaşıldı</option>
+          <option>Onaylandı</option>
+          <option>Onaylanmadı</option>
         </select>
         <input placeholder="Ara (şirket veya içerik)" value={query} onChange={e=>setQuery(e.target.value)} className="p-2 border rounded flex-1" />
         <button onClick={()=>{ setFilterStatus('Tümü'); setQuery('') }} className="px-3 py-1 border rounded">Sıfırla</button>
       </div>
 
+      {toast.show && (
+        <div className={`fixed top-6 right-6 px-4 py-2 rounded shadow ${toast.type==='error' ? 'bg-red-600 text-white' : 'bg-green-600 text-white'}`}>
+          {toast.message}
+        </div>
+      )}
       {loading ? <p>Yükleniyor...</p> : (
         visibleContents.length ? (
           <ContentList contents={visibleContents} usersMap={usersMap} currentUserId={JSON.parse(localStorage.getItem('user') || 'null')?.id} onUpdated={fetchContents} />

@@ -15,6 +15,12 @@ export default function ContentList({ contents = [], usersMap = {}, currentUserI
       onUpdated()
     }catch(err){ alert(err.response?.data?.message || err.message) }
   }
+  const approve = async (id) => {
+    try{
+      await api.patch(`/contents/${id}`, { approved: true })
+      onUpdated()
+    }catch(err){ alert(err.response?.data?.message || err.message) }
+  }
   return (
     <div className="overflow-x-auto">
       <table className="w-full table-auto border-collapse">
@@ -25,6 +31,7 @@ export default function ContentList({ contents = [], usersMap = {}, currentUserI
             <th className="px-2 py-2">Tür</th>
             <th className="px-2 py-2">Atanan</th>
             <th className="px-2 py-2">Durum</th>
+            <th className="px-2 py-2">Onay</th>
           </tr>
         </thead>
         <tbody>
@@ -46,6 +53,21 @@ export default function ContentList({ contents = [], usersMap = {}, currentUserI
                     </select>
                   ) : (
                     <span className={`px-2 py-1 rounded ${statusClasses[item.status] || 'bg-gray-100'}`}>{item.status}</span>
+                  )}
+                </td>
+                <td className="px-2 py-2">
+                  {isAdmin ? (
+                    item.approved ? (
+                      <span className="text-green-700 font-semibold">Onaylandı</span>
+                    ) : (
+                      item.status === 'Paylaşıldı' ? (
+                        <button onClick={()=>approve(item.id)} className="px-2 py-1 bg-blue-500 text-white rounded text-sm">Onayla</button>
+                      ) : (
+                        <span className="text-gray-500 text-sm">Bekleniyor</span>
+                      )
+                    )
+                  ) : (
+                    item.approved ? 'Onaylandı' : 'Onaylanmadı'
                   )}
                 </td>
               </tr>

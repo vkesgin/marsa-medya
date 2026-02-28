@@ -19,7 +19,10 @@ export default function Header(){
         <h1 className="text-xl font-semibold">İçerik Planlama</h1>
         <p className="text-sm text-gray-600">{email}</p>
       </div>
-      <div>
+      <div className="flex items-center gap-3">
+        {localStorage.getItem('isAdmin') === '1' && (
+          <button onClick={()=>navigate('/users')} className="px-3 py-1 bg-indigo-600 text-white rounded">Kullanıcılar</button>
+        )}
         <button onClick={logout} className="px-3 py-1 bg-red-500 text-white rounded">Çıkış</button>
       </div>
     </div>

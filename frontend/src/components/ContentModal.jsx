@@ -38,7 +38,8 @@ export default function ContentModal({ open, onClose, onCreated }){
     if(!form.company) e.company = 'Şirket adı zorunlu.'
     if(!form.publish_date) e.publish_date = 'Tarih zorunlu.'
     if(!form.type) e.type = 'Tür zorunlu.'
-    if(!form.assigned_to) e.assigned_to = 'Atanan kullanıcı seçiniz.'
+    // assigned_to optional now
+    // if(!form.assigned_to) e.assigned_to = 'Atanan kullanıcı seçiniz.'
     setErrors(e)
     return Object.keys(e).length === 0
   }
@@ -76,7 +77,7 @@ export default function ContentModal({ open, onClose, onCreated }){
         </label>
         <label className="block mb-2">Atanan
           <select value={form.assigned_to} onChange={e=>change('assigned_to', e.target.value)} className="w-full p-2 border rounded">
-            <option value="">-- Seçiniz --</option>
+            <option value="">-- Seçiniz (opsiyonel) --</option>
             {users.length ? users.map(u=> <option key={u.id} value={u.id}>{u.email}</option>) : <option value="">(Kullanıcı listesi yok)</option>}
           </select>
           {errors.assigned_to && <p className="text-sm text-red-600">{errors.assigned_to}</p>}

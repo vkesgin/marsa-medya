@@ -31,8 +31,9 @@ exports.getContents = async (req, res) => {
 exports.createContent = async (req, res) => {
   try {
     const { company, publish_date, content_info, type, assigned_to } = req.body
-    // varsayılan durum 'Planlandı' olarak eklenir
-    const payload = { company, publish_date, content_info, type, assigned_to, status: 'Planlandı' }
+    // varsayılan durum 'Planlandı' ve onay false
+    const payload = { company, publish_date, content_info, type, status: 'Planlandı', approved: false }
+    if (assigned_to) payload.assigned_to = assigned_to // optionally include
 
     const { data, error } = await supabase
       .from('contents')
@@ -51,7 +52,7 @@ exports.createContent = async (req, res) => {
 exports.updateContent = async (req, res) => {
   try {
     const { id } = req.params
-    const { status } = req.body
+    const { status, approved } = req.body
     const user = req.user || null
 
     if (!user) return res.status(401).json({ success: false, message: 'Unauthorized' })
@@ -64,7 +65,16 @@ exports.updateContent = async (req, res) => {
     const allowed = isAdmin || (existing && existing.assigned_to === user.id)
     if (!allowed) return res.status(403).json({ success: false, message: 'Forbidden' })
 
-    const { data, error } = await supabase.from('contents').update({ status }).eq('id', id).select()
+    // only admin can modify approval flag
+    if (approved !== undefined && !isAdmin) {
+      return res.status(403).json({ success: false, message: 'Only admin can change approval' })
+    }
+
+    // build payload dynamically
+    const payload = {}
+    if (status !== undefined) payload.status = status
+    if (approved !== undefined) payload.approved = approved
+    const { data, error } = await supabase.from('contents').update(payload).eq('id', id).select()
     if (error) throw error
 
     res.json({ success: true, data })
