@@ -1,8 +1,9 @@
 import React, { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { loginUser } from '../services/authService'
+import { showToast } from '../utils/toast'
 
-export default function Login(){
+export default function Login({ onLoginSuccess = () => {} }){
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
@@ -24,8 +25,14 @@ export default function Login(){
       localStorage.setItem('sb_access_token', session)
       localStorage.setItem('user', JSON.stringify(user))
       localStorage.setItem('isAdmin', isAdmin ? '1' : '0')
-      // pass a message to dashboard so it can show a success alert
-      navigate('/dashboard', { state: { message: 'Giriş başarılı!' } })
+      window.dispatchEvent(new Event('auth-changed'))
+      
+      // Notify parent component before navigation
+      onLoginSuccess()
+      showToast('Giriş başarılı!', 'success', 2000)
+      
+      // Navigate to dashboard with success message
+      navigate('/dashboard', { state: { message: 'Giriş başarılı!' }, replace: true })
     } catch (err) {
       setError(err.message || 'Bir hata oluştu. Lütfen tekrar deneyin.')
     } finally { 
@@ -86,7 +93,7 @@ export default function Login(){
           </form>
           
           <p className="text-center text-gray-500 text-sm mt-6">
-            Demo Hesap: admin@example.com / admin123
+            Demo Hesap: test@example.com / test12345
           </p>
         </div>
       </div>

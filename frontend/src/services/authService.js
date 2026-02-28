@@ -1,12 +1,14 @@
 import { supabase } from './supabaseClient'
 
+const API_BASE_URL = import.meta.env.VITE_API_URL || '/api'
+
 /**
  * Backend'deki /api/auth/login endpoint'i çağırarak kullanıcı girişi sağlar
  * Backend, Supabase Auth ile doğrulama yapıp token döndürür
  */
 export const loginUser = async (email, password) => {
   try {
-    const response = await fetch(`${import.meta.env.VITE_API_URL}/auth/login`, {
+    const response = await fetch(`${API_BASE_URL}/auth/login`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

@@ -6,4 +6,3 @@ router.post('/login', login)
 router.post('/register', registerUser)
 
 module.exports = router
-module.exports.default = router

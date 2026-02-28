@@ -5,7 +5,9 @@
   "main": "index.js",
   "scripts": {
     "start": "node src/server.js",
-    "dev": "nodemon src/server.js"
+    "dev": "nodemon src/server.js",
+    "dev:frontend": "npm --prefix frontend run dev",
+    "dev:all": "concurrently -n api,web -c blue,green \"npm run dev\" \"npm run dev:frontend\""
   },
   "keywords": [],
   "author": "",
@@ -19,6 +21,7 @@
     "helmet": "^8.1.0"
   },
   "devDependencies": {
+    "concurrently": "^9.2.1",
     "morgan": "^1.10.1",
     "nodemon": "^3.1.14"
   }

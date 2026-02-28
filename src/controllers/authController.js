@@ -12,7 +12,10 @@ exports.login = async (req, res) => {
 
     if (error) throw error;
 
-    const isAdmin = data?.user && process.env.ADMIN_EMAIL && data.user.email === process.env.ADMIN_EMAIL
+    // Admin kontrolü: user_metadata'dan role'ü kontrol et
+    const userRole = data?.user?.user_metadata?.role;
+    const isAdmin = userRole === 'admin';
+    
     res.status(200).json({
       success: true,
       message: "Giriş başarılı!",
@@ -29,13 +32,19 @@ exports.login = async (req, res) => {
 exports.registerUser = async (req, res) => {
   try {
     const user = req.user || null
-    const isAdmin = user && process.env.ADMIN_EMAIL && user.email === process.env.ADMIN_EMAIL
+    const isAdmin = user?.user_metadata?.role === 'admin'
     if (!isAdmin) return res.status(403).json({ success: false, message: 'Forbidden' })
 
     const { email, password } = req.body
     if (!email || !password) return res.status(400).json({ success: false, message: 'Email ve parola gereklidir' })
 
-    const { data, error } = await supabase.auth.admin.createUser({
+    // Use admin client for user creation
+    const supabaseAdmin = require('../config/supabase').supabaseAdmin
+    if (!supabaseAdmin) {
+      return res.status(500).json({ success: false, message: 'Admin key not configured' })
+    }
+
+    const { data, error } = await supabaseAdmin.auth.admin.createUser({
       email,
       password,
       email_confirm: true
