@@ -1,0 +1,74 @@
+const supabase = require('../config/supabase');
+
+// 1. Tüm İçerikleri Listeleme İşlemi
+exports.getContents = async (req, res) => {
+  try {
+    const user = req.user || null
+    const isAdmin = user && process.env.ADMIN_EMAIL && user.email === process.env.ADMIN_EMAIL
+
+    // Eğer kullanıcı admin değilse, sadece kendisine atanan içerikleri getir
+    let query = supabase
+      .from('contents')
+      .select('*')
+      .order('publish_date', { ascending: true })
+
+    if (!isAdmin) {
+      if (!user) return res.status(401).json({ success: false, message: 'Unauthorized' })
+      query = query.eq('assigned_to', user.id)
+    }
+
+    const { data, error } = await query
+
+    if (error) throw error
+
+    res.status(200).json({ success: true, data: data })
+  } catch (error) {
+    res.status(400).json({ success: false, message: error.message })
+  }
+}
+
+// 2. Yeni İçerik Ekleme İşlemi (Admin panelinden)
+exports.createContent = async (req, res) => {
+  try {
+    const { company, publish_date, content_info, type, assigned_to } = req.body
+    // varsayılan durum 'Planlandı' olarak eklenir
+    const payload = { company, publish_date, content_info, type, assigned_to, status: 'Planlandı' }
+
+    const { data, error } = await supabase
+      .from('contents')
+      .insert([payload])
+      .select()
+
+    if (error) throw error
+
+    res.status(201).json({ success: true, message: 'İçerik başarıyla planlandı!', data: data })
+  } catch (error) {
+    res.status(400).json({ success: false, message: error.message })
+  }
+}
+
+// 3. İçerik durumu güncelleme (status değişimi)
+exports.updateContent = async (req, res) => {
+  try {
+    const { id } = req.params
+    const { status } = req.body
+    const user = req.user || null
+
+    if (!user) return res.status(401).json({ success: false, message: 'Unauthorized' })
+
+    // fetch current content to check assigned_to
+    const { data: existing, error: fetchErr } = await supabase.from('contents').select('*').eq('id', id).single()
+    if (fetchErr) throw fetchErr
+
+    const isAdmin = user && process.env.ADMIN_EMAIL && user.email === process.env.ADMIN_EMAIL
+    const allowed = isAdmin || (existing && existing.assigned_to === user.id)
+    if (!allowed) return res.status(403).json({ success: false, message: 'Forbidden' })
+
+    const { data, error } = await supabase.from('contents').update({ status }).eq('id', id).select()
+    if (error) throw error
+
+    res.json({ success: true, data })
+  } catch (error) {
+    res.status(400).json({ success: false, message: error.message })
+  }
+}
