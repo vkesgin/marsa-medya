@@ -6,7 +6,10 @@ exports.listUsers = async (req, res) => {
     const user = req.user || null
     if (!user) return res.status(401).json({ success: false, message: 'Unauthorized' })
 
-    const isAdmin = user?.user_metadata?.role === 'admin'
+    const userRole = user?.user_metadata?.role
+    const userEmail = user?.email
+    const isSuperAdmin = userEmail === 'veli@marmosium.com' || userRole === 'super_admin'
+    const isAdmin = userRole === 'admin' || isSuperAdmin
 
     // Try admin API if admin key is available
     const supabaseAdmin = require('../config/supabase').supabaseAdmin
@@ -17,9 +20,10 @@ exports.listUsers = async (req, res) => {
         const users = (data?.users || []).map(u => ({ 
           id: u.id, 
           email: u.email,
-          role: isAdmin ? (u.user_metadata?.role || 'user') : undefined // Only show role to admins
+          role: isAdmin ? (u.user_metadata?.role || 'user') : undefined, // Only show role to admins
+          isSuperAdmin: isSuperAdmin // Pass super admin status to frontend
         }))
-        return res.json({ success: true, data: users })
+        return res.json({ success: true, data: users, isSuperAdmin })
       } catch (e) {
         console.error('Admin API error:', e.message)
         // Fall through to alternative method
@@ -50,12 +54,15 @@ exports.listUsers = async (req, res) => {
   }
 }
 
-// Admin-only: Delete user
+// Super Admin-only: Delete user
 exports.deleteUser = async (req, res) => {
   try {
     const user = req.user || null
-    const isAdmin = user?.user_metadata?.role === 'admin'
-    if (!isAdmin) return res.status(403).json({ success: false, message: 'Forbidden' })
+    const userRole = user?.user_metadata?.role
+    const userEmail = user?.email
+    const isSuperAdmin = userEmail === 'veli@marmosium.com' || userRole === 'super_admin'
+    
+    if (!isSuperAdmin) return res.status(403).json({ success: false, message: 'Only super admin can delete users' })
 
     const { userId } = req.params
     if (!userId) return res.status(400).json({ success: false, message: 'User ID required' })
@@ -79,16 +86,25 @@ exports.deleteUser = async (req, res) => {
   }
 }
 
-// Admin-only: Update user role
+// Super Admin-only: Update user role
 exports.updateUserRole = async (req, res) => {
   try {
     const user = req.user || null
-    const isAdmin = user?.user_metadata?.role === 'admin'
-    if (!isAdmin) return res.status(403).json({ success: false, message: 'Forbidden' })
+    const userRole = user?.user_metadata?.role
+    const userEmail = user?.email
+    const isSuperAdmin = userEmail === 'veli@marmosium.com' || userRole === 'super_admin'
+    
+    if (!isSuperAdmin) return res.status(403).json({ success: false, message: 'Only super admin can change roles' })
 
     const { userId } = req.params
     const { role } = req.body
     if (!userId || !role) return res.status(400).json({ success: false, message: 'User ID and role required' })
+    
+    // Validate role
+    const validRoles = ['user', 'admin', 'approver', 'super_admin']
+    if (!validRoles.includes(role)) {
+      return res.status(400).json({ success: false, message: 'Invalid role. Must be: user, admin, approver, or super_admin' })
+    }
 
     const supabaseAdmin = require('../config/supabase').supabaseAdmin
     if (!supabaseAdmin) {

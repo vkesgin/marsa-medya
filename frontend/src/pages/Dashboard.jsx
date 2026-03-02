@@ -14,7 +14,7 @@ export default function Dashboard(){
   const [usersMap, setUsersMap] = useState({})
   const [filterStatus, setFilterStatus] = useState('Tümü')
   const [assignmentFilter, setAssignmentFilter] = useState(
-    localStorage.getItem('isAdmin') === '1' ? 'Tümü' : 'Bana Atananlar'
+    localStorage.getItem('isAdmin') === '1' || localStorage.getItem('isApprover') === '1' ? 'Tümü' : 'Bana Atananlar'
   )
   const [query, setQuery] = useState('')
   const [adminTab, setAdminTab] = useState('content')
@@ -24,6 +24,8 @@ export default function Dashboard(){
   const [selectedRevision, setSelectedRevision] = useState('')
   const [linkEditingId, setLinkEditingId] = useState(null)
   const [linkEditingValue, setLinkEditingValue] = useState('')
+  const [editingAssignedId, setEditingAssignedId] = useState(null)
+  const [editingAssignedValue, setEditingAssignedValue] = useState('')
   const [revisionEditingId, setRevisionEditingId] = useState(null)
   const [revisionEditingValue, setRevisionEditingValue] = useState('')
   const [collapsedCategories, setCollapsedCategories] = useState({
@@ -35,6 +37,8 @@ export default function Dashboard(){
   const location = useLocation()
   const mountedRef = React.useRef(true)
   const isAdmin = localStorage.getItem('isAdmin') === '1'
+  const isApprover = localStorage.getItem('isApprover') === '1'
+  const isSuperAdmin = localStorage.getItem('isSuperAdmin') === '1'
   const currentUserId = JSON.parse(localStorage.getItem('user') || 'null')?.id
 
   const fetchUsersMap = async () => {
@@ -118,8 +122,8 @@ export default function Dashboard(){
       if (content.status === 'Paylaşıldı') return false
     }
     
-    // Assignment filter: "Bana Atananlar" seçiliyse sadece kendisine atananları göster
-    if (!isAdmin && assignmentFilter === 'Bana Atananlar' && content.assigned_to !== currentUserId) {
+    // Assignment filter: "Bana Atananlar" seçiliyse sadece kendisine atananları göster (nur für normale User)
+    if (!(isAdmin || isApprover) && assignmentFilter === 'Bana Atananlar' && content.assigned_to !== currentUserId) {
       return false
     }
     
@@ -142,6 +146,32 @@ export default function Dashboard(){
   const approvedContents = contents.filter(c =>
     c.status === 'Yapıldı' && c.admin_approved
   )
+
+  const assignmentSummary = Object.values(
+    contents.reduce((acc, item) => {
+      if (!item.assigned_to || item.status === 'İptal') return acc
+      if (!acc[item.assigned_to]) {
+        acc[item.assigned_to] = {
+          userId: item.assigned_to,
+          total: 0,
+          post: 0,
+          reels: 0,
+          story: 0,
+          other: 0
+        }
+      }
+
+      const type = String(item.type || '').trim().toLowerCase()
+      acc[item.assigned_to].total += 1
+
+      if (type === 'post') acc[item.assigned_to].post += 1
+      else if (type === 'reels') acc[item.assigned_to].reels += 1
+      else if (type === 'story') acc[item.assigned_to].story += 1
+      else acc[item.assigned_to].other += 1
+
+      return acc
+    }, {})
+  ).sort((a, b) => b.total - a.total)
 
   // Kategori fonksiyonu
   const groupContentsByStatus = (items) => {
@@ -230,6 +260,18 @@ export default function Dashboard(){
     }
   }
 
+  const saveAssignedTo = async (id) => {
+    try {
+      await api.patch(`/contents/${id}`, { assigned_to: editingAssignedValue || null })
+      setEditingAssignedId(null)
+      setEditingAssignedValue('')
+      showToast('Atanan kullanıcı güncellendi', 'success', 2000)
+      fetchContents()
+    } catch (err) {
+      showToast(err.response?.data?.message || err.message, 'error', 3000)
+    }
+  }
+
   const canDeleteContent = (item) => {
     // Only admins can delete content
     return isAdmin
@@ -243,7 +285,7 @@ export default function Dashboard(){
         {isAdmin && <button className="bg-green-600 text-white px-3 py-1 rounded" onClick={()=>setOpenModal(true)}>Yeni İçerik Ekle</button>}
       </div>
 
-      {!isAdmin && (
+      {!(isAdmin || isApprover) && (
         <div className="bg-blue-50 border border-blue-200 rounded p-3 mb-4">
           <p className="text-sm text-blue-700">
             <strong>İçerikler:</strong> Tüm içerikleri görebilir veya sadece size atanan içerikleri filtreleyebilirsiniz.
@@ -251,7 +293,7 @@ export default function Dashboard(){
         </div>
       )}
 
-      {isAdmin && (
+      {(isAdmin || isApprover) && (
         <div className="flex gap-2 mb-4">
           <button 
             onClick={() => setAdminTab('content')}
@@ -292,7 +334,7 @@ export default function Dashboard(){
       ) : (
         <div>
           {/* Revize Gerekli İçerikler Bildirimi */}
-          {!isAdmin && (() => {
+          {!isApprover && (() => {
             const myRevisions = contents.filter(c => 
               c.status === 'Revize Gerekli' && 
               c.assigned_to === currentUserId &&
@@ -329,8 +371,33 @@ export default function Dashboard(){
             }
           })()}
 
+          {isSuperAdmin && (
+            <div className="bg-indigo-50 border border-indigo-200 rounded p-4 mb-4">
+              <h3 className="text-sm font-semibold text-indigo-900 mb-3">Atama Özeti (Süper Admin)</h3>
+              {assignmentSummary.length > 0 ? (
+                <div className="space-y-2">
+                  {assignmentSummary.map((row) => {
+                    const email = usersMap[row.userId] || row.userId
+                    return (
+                      <div key={row.userId} className="bg-white border border-indigo-100 rounded p-2 text-sm flex flex-wrap gap-3 items-center">
+                        <span className="font-medium text-gray-800 min-w-[220px]">{email}</span>
+                        <span className="text-gray-700">Toplam: {row.total}</span>
+                        <span className="text-gray-700">Post: {row.post}</span>
+                        <span className="text-gray-700">Reels: {row.reels}</span>
+                        <span className="text-gray-700">Story: {row.story}</span>
+                        {row.other > 0 && <span className="text-gray-700">Diğer: {row.other}</span>}
+                      </div>
+                    )
+                  })}
+                </div>
+              ) : (
+                <p className="text-sm text-indigo-800">Henüz kullanıcı ataması yapılmış aktif içerik yok.</p>
+              )}
+            </div>
+          )}
+
           <div className="flex gap-3 mb-4 flex-wrap">
-            {!isAdmin && (
+            {!isAdmin && !isApprover && (
               <select value={assignmentFilter} onChange={e=>setAssignmentFilter(e.target.value)} className="p-2 border rounded">
                 <option>Tümü</option>
                 <option>Bana Atananlar</option>
@@ -367,7 +434,7 @@ export default function Dashboard(){
                 }
                 
                 // Paylaşıldı ve İptal kategorileri için collapsible yapı
-                const isCollapsible = isAdmin && (status === 'Paylaşıldı' || status === 'İptal')
+                const isCollapsible = (isAdmin || isApprover) && (status === 'Paylaşıldı' || status === 'İptal')
                 const isCollapsed = collapsedCategories[status]
                 
                 return (
@@ -384,7 +451,7 @@ export default function Dashboard(){
                         {isCollapsible && (
                           <span className="mr-2 inline-block transition-transform" style={{transform: isCollapsed ? 'rotate(0deg)' : 'rotate(90deg)'}}>▶</span>
                         )}
-                        {statusLabelMap[status] || status} ({items.length})
+                        {statusLabelMap[status] || status}
                       </h3>
                     </div>
                     {(!isCollapsible || !isCollapsed) && (
@@ -423,7 +490,53 @@ export default function Dashboard(){
                                 )}
                               </div>
                               <div className="text-right flex flex-col items-end gap-2">
-                                <div className="text-xs text-gray-500">Atanan: {assignedEmail}</div>
+                                {isSuperAdmin && editingAssignedId === item.id ? (
+                                  <div className="flex items-center gap-1">
+                                    <select
+                                      value={editingAssignedValue}
+                                      onChange={(e) => setEditingAssignedValue(e.target.value)}
+                                      className="p-1 border rounded text-xs bg-white"
+                                    >
+                                      <option value="">Atanmamış</option>
+                                      {Object.entries(usersMap).map(([userId, email]) => (
+                                        <option key={userId} value={userId}>{email}</option>
+                                      ))}
+                                    </select>
+                                    <button
+                                      onClick={() => saveAssignedTo(item.id)}
+                                      className="text-green-600 hover:text-green-900 text-sm font-bold"
+                                      title="Kaydet"
+                                    >
+                                      ✓
+                                    </button>
+                                    <button
+                                      onClick={() => {
+                                        setEditingAssignedId(null)
+                                        setEditingAssignedValue('')
+                                      }}
+                                      className="text-red-600 hover:text-red-900 text-sm"
+                                      title="İptal"
+                                    >
+                                      ✕
+                                    </button>
+                                  </div>
+                                ) : (
+                                  <div className="text-xs text-gray-500 flex items-center gap-1">
+                                    <span>Atanan: {assignedEmail}</span>
+                                    {isSuperAdmin && (
+                                      <button
+                                        onClick={() => {
+                                          setEditingAssignedId(item.id)
+                                          setEditingAssignedValue(item.assigned_to || '')
+                                        }}
+                                        className="text-gray-600 hover:text-gray-900 text-sm"
+                                        title="Ata"
+                                      >
+                                        ✏️
+                                      </button>
+                                    )}
+                                  </div>
+                                )}
                                 {canDeleteContent(item) && (
                                   <button
                                     onClick={() => deleteContent(item.id)}

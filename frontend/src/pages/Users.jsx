@@ -6,6 +6,7 @@ import { showToast } from '../utils/toast'
 export default function Users(){
   const navigate = useNavigate()
   const [users, setUsers] = useState([])
+  const [isSuperAdmin, setIsSuperAdmin] = useState(false)
   
   // note about Supabase dashboard users
   const [noteVisible] = useState(true)
@@ -19,6 +20,7 @@ export default function Users(){
     try{
       const res = await api.get('/users')
       setUsers(res.data.data || [])
+      setIsSuperAdmin(res.data.isSuperAdmin || false)
     }catch(err){
       if (err.response?.status !== 401) {
         showToast(err.response?.data?.message || err.message, 'error', 3000)
@@ -58,14 +60,34 @@ export default function Users(){
     }
   }
 
-  const promoteToAdmin = async (userId, role = 'admin') => {
+  const changeUserRole = async (userId, newRole) => {
     try {
-      const res = await api.patch(`/users/${userId}/role`, { role })
-      showToast(res.data.message || (role === 'admin' ? 'Kullanıcı admin yapıldı' : 'Kullanıcı normal role döndürüldü'), 'success', 2000)
+      const res = await api.patch(`/users/${userId}/role`, { role: newRole })
+      showToast(res.data.message || 'Kullanıcı rolü güncellendi', 'success', 2000)
       fetchUsers()
     } catch (err) {
       showToast(err.response?.data?.message || err.message, 'error', 3000)
     }
+  }
+  
+  const getRoleLabel = (role) => {
+    const roleMap = {
+      'super_admin': 'Super Admin',
+      'admin': 'Admin',
+      'approver': 'Onaylayıcı',
+      'user': 'Kullanıcı'
+    }
+    return roleMap[role] || 'Kullanıcı'
+  }
+  
+  const getRoleColor = (role) => {
+    const colorMap = {
+      'super_admin': 'bg-purple-100 text-purple-800',
+      'admin': 'bg-yellow-100 text-yellow-800',
+      'approver': 'bg-green-100 text-green-800',
+      'user': 'bg-blue-100 text-blue-800'
+    }
+    return colorMap[role] || 'bg-gray-100 text-gray-800'
   }
 
   return (
@@ -100,23 +122,29 @@ export default function Users(){
             <tr key={u.id} className="border-b">
               <td className="px-2 py-2">{u.email}</td>
               <td className="px-2 py-2">
-                <span className={`px-2 py-1 rounded text-sm ${u.role === 'admin' ? 'bg-yellow-100 text-yellow-800' : 'bg-blue-100 text-blue-800'}`}>
-                  {u.role === 'admin' ? 'Admin' : 'Kullanıcı'}
-                </span>
+                {isSuperAdmin ? (
+                  <select 
+                    value={u.role || 'user'} 
+                    onChange={(e) => changeUserRole(u.id, e.target.value)}
+                    className={`px-2 py-1 rounded text-sm border ${getRoleColor(u.role)}`}
+                  >
+                    <option value="user">Kullanıcı</option>
+                    <option value="approver">Onaylayıcı</option>
+                    <option value="admin">Admin</option>
+                    <option value="super_admin">Super Admin</option>
+                  </select>
+                ) : (
+                  <span className={`px-2 py-1 rounded text-sm ${getRoleColor(u.role)}`}>
+                    {getRoleLabel(u.role)}
+                  </span>
+                )}
               </td>
               <td className="px-2 py-2 flex gap-2">
-                {u.role !== 'admin' ? (
-                  <button onClick={()=>promoteToAdmin(u.id)} className="px-2 py-1 bg-yellow-500 text-white rounded text-sm hover:bg-yellow-600">
-                    Admin Yap
-                  </button>
-                ) : (
-                  <button onClick={()=>promoteToAdmin(u.id, 'user')} className="px-2 py-1 bg-gray-500 text-white rounded text-sm hover:bg-gray-600">
-                    Normal Yap
+                {isSuperAdmin && (
+                  <button onClick={()=>deleteUser(u.id)} className="px-2 py-1 bg-red-500 text-white rounded text-sm hover:bg-red-600">
+                    Sil
                   </button>
                 )}
-                <button onClick={()=>deleteUser(u.id)} className="px-2 py-1 bg-red-500 text-white rounded text-sm hover:bg-red-600">
-                  Sil
-                </button>
               </td>
             </tr>
           ))}

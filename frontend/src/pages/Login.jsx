@@ -21,10 +21,12 @@ export default function Login({ onLoginSuccess = () => {} }){
         throw new Error(res.message || 'Giriş başarısız')
       }
       
-      const { session, user, isAdmin } = res
+      const { session, user, isAdmin, isSuperAdmin, isApprover } = res
       localStorage.setItem('sb_access_token', session)
       localStorage.setItem('user', JSON.stringify(user))
       localStorage.setItem('isAdmin', isAdmin ? '1' : '0')
+      localStorage.setItem('isSuperAdmin', isSuperAdmin ? '1' : '0')
+      localStorage.setItem('isApprover', isApprover ? '1' : '0')
       window.dispatchEvent(new Event('auth-changed'))
       
       // Notify parent component before navigation
@@ -91,10 +93,6 @@ export default function Login({ onLoginSuccess = () => {} }){
               {loading ? 'Giriş yapılıyor...' : 'Giriş Yap'}
             </button>
           </form>
-          
-          <p className="text-center text-gray-500 text-sm mt-6">
-            Demo Hesap: test@example.com / test12345
-          </p>
         </div>
       </div>
     </div>

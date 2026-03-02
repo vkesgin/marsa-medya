@@ -17,10 +17,15 @@ export default function ContentList({ contents = [], usersMap = {}, currentUserI
   const [selectedDescription, setSelectedDescription] = useState('')
   const [editingLinkId, setEditingLinkId] = useState(null)
   const [editingLinkValue, setEditingLinkValue] = useState('')
+  const [editingAssignedId, setEditingAssignedId] = useState(null)
+  const [editingAssignedValue, setEditingAssignedValue] = useState('')
   const [revisionModalOpen, setRevisionModalOpen] = useState(false)
   const [revisionContentId, setRevisionContentId] = useState(null)
   const [revisionContentName, setRevisionContentName] = useState('')
   const isAdmin = localStorage.getItem('isAdmin') === '1'
+  const isApprover = localStorage.getItem('isApprover') === '1'
+  const isSuperAdmin = localStorage.getItem('isSuperAdmin') === '1'
+  const canApprove = isApprover || isSuperAdmin  // Only approver and super admin can modify
   
   const formatDate = (value) => {
     if (!value) return '-'
@@ -42,6 +47,23 @@ export default function ContentList({ contents = [], usersMap = {}, currentUserI
         alert(err.response?.data?.message || err.message)
       }
     }
+  }
+
+  const updateAssignedTo = async (id, newAssignedTo) => {
+    try{
+      await api.patch(`/contents/${id}`, { assigned_to: newAssignedTo })
+      onUpdated()
+    }catch(err){
+      if (err.response?.status !== 401) {
+        alert(err.response?.data?.message || err.message)
+      }
+    }
+  }
+
+  const saveAssignedTo = async (id) => {
+    await updateAssignedTo(id, editingAssignedValue)
+    setEditingAssignedId(null)
+    setEditingAssignedValue('')
   }
 
   const updateDriveLink = async (id, driveLink) => {
@@ -149,7 +171,7 @@ export default function ContentList({ contents = [], usersMap = {}, currentUserI
           <tbody>
             {contents.map(item => {
               const assignedEmail = usersMap[item.assigned_to] || item.assigned_to
-              const canEdit = (localStorage.getItem('isAdmin') === '1') || (currentUserId && item.assigned_to === currentUserId)
+              const canEdit = (localStorage.getItem('isAdmin') === '1') || (currentUserId && item.assigned_to === currentUserId && !isApprover)
               const hasRevisionNote = item.revision_notes && item.status === 'Revize Gerekli'
               
               return (
@@ -171,7 +193,55 @@ export default function ContentList({ contents = [], usersMap = {}, currentUserI
                       <span className="text-gray-400">-</span>
                     )}
                   </td>
-                  <td className="px-2 py-2 text-xs">{assignedEmail}</td>
+                  <td className="px-2 py-2 text-xs">
+                    {isSuperAdmin && editingAssignedId === item.id ? (
+                      <div className="flex gap-1 items-center">
+                        <select 
+                          value={editingAssignedValue} 
+                          onChange={(e) => setEditingAssignedValue(e.target.value)}
+                          className="p-1 border rounded text-xs flex-1"
+                        >
+                          <option value="">Atanmamış</option>
+                          {Object.entries(usersMap).map(([userId, email]) => (
+                            <option key={userId} value={userId}>{email}</option>
+                          ))}
+                        </select>
+                        <button 
+                          onClick={() => saveAssignedTo(item.id)}
+                          className="text-green-600 hover:text-green-900 text-sm font-bold"
+                          title="Kaydet"
+                        >
+                          ✓
+                        </button>
+                        <button 
+                          onClick={() => {
+                            setEditingAssignedId(null)
+                            setEditingAssignedValue('')
+                          }}
+                          className="text-red-600 hover:text-red-900 text-sm"
+                          title="İptal"
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="flex justify-between items-center">
+                        <span>{assignedEmail}</span>
+                        {isSuperAdmin && (
+                          <button 
+                            onClick={() => {
+                              setEditingAssignedId(item.id)
+                              setEditingAssignedValue(item.assigned_to || '')
+                            }}
+                            className="text-gray-600 hover:text-gray-900 text-sm ml-2"
+                            title="Ata"
+                          >
+                            ✏️
+                          </button>
+                        )}
+                      </div>
+                    )}
+                  </td>
                   <td className="px-2 py-2">
                     {canEdit ? (
                       <select value={item.status} onChange={e=>changeStatus(item.id, e.target.value)} className="p-1 border rounded text-xs">
@@ -212,7 +282,7 @@ export default function ContentList({ contents = [], usersMap = {}, currentUserI
                     )}
                   </td>
                   <td className="px-2 py-2">
-                    {isAdmin ? (
+                    {canApprove ? (
                       item.status === 'İptal' ? (
                         <div className="flex gap-1 items-center">
                           <span className="text-red-700 font-semibold text-xs px-2 py-1 bg-red-100 rounded">✕ İptal Edildi</span>

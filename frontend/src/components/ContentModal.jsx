@@ -5,9 +5,8 @@ import { showToast } from '../utils/toast'
 const CONTENT_TYPES = ['Story', 'Post', 'Reels']
 
 export default function ContentModal({ open, onClose, onCreated }){
-  const [form, setForm] = useState({ company: '', publish_date: '', content_info: '', type: '', assigned_to: '' })
+  const [form, setForm] = useState({ company: '', publish_date: '', content_info: '', type: '' })
   const [loading, setLoading] = useState(false)
-  const [users, setUsers] = useState([])
   const [companies, setCompanies] = useState([])
   const [errors, setErrors] = useState({})
   const [showNewCompany, setShowNewCompany] = useState(false)
@@ -15,7 +14,7 @@ export default function ContentModal({ open, onClose, onCreated }){
 
   useEffect(()=>{
     if(!open) return
-    setForm({ company: '', publish_date: '', content_info: '', type: '', assigned_to: '' })
+    setForm({ company: '', publish_date: '', content_info: '', type: '' })
     setErrors({})
     setShowNewCompany(false)
     setNewCompany('')
@@ -26,12 +25,8 @@ export default function ContentModal({ open, onClose, onCreated }){
         // GET mevcut şirketleri
         const uniqueCompanies = [...new Set((res.data.data || []).map(c => c.company).filter(Boolean))].sort()
         setCompanies(uniqueCompanies)
-
-        const ures = await api.get('/users')
-        setUsers(ures.data.data || [])
       }catch(e){
         setCompanies([])
-        setUsers([])
       }
     }
     fetchData()
@@ -127,14 +122,6 @@ export default function ContentModal({ open, onClose, onCreated }){
             {CONTENT_TYPES.map(t=> <option key={t} value={t}>{t}</option>)}
           </select>
           {errors.type && <p className="text-sm text-red-600">{errors.type}</p>}
-        </label>
-
-        <label className="block mb-3">
-          <div className="font-medium text-sm mb-1">Atanan (Opsiyonel)</div>
-          <select value={form.assigned_to} onChange={e=>change('assigned_to', e.target.value)} className="w-full p-2 border rounded">
-            <option value="">-- Seçiniz --</option>
-            {users.length ? users.map(u=> <option key={u.id} value={u.id}>{u.email}</option>) : <option value="">(Kullanıcı listesi yok)</option>}
-          </select>
         </label>
 
         <label className="block mb-4">

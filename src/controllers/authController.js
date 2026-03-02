@@ -14,14 +14,28 @@ exports.login = async (req, res) => {
 
     // Admin kontrolü: user_metadata'dan role'ü kontrol et
     const userRole = data?.user?.user_metadata?.role;
-    const isAdmin = userRole === 'admin';
+    const userEmail = data?.user?.email;
+    const isSuperAdmin = userEmail === 'veli@marmosium.com' || userRole === 'super_admin';
+    const isAdmin = userRole === 'admin' || isSuperAdmin;
+    const isApprover = userRole === 'approver';
+    
+    // Debug logging
+    console.log('=== LOGIN DEBUG ===');
+    console.log('Email:', userEmail);
+    console.log('Role from metadata:', userRole);
+    console.log('isSuperAdmin:', isSuperAdmin);
+    console.log('isAdmin:', isAdmin);
+    console.log('isApprover:', isApprover);
+    console.log('==================');
     
     res.status(200).json({
       success: true,
       message: "Giriş başarılı!",
       user: data.user, // Kullanıcı bilgileri (id, email vb.)
       session: data.session.access_token, // Bu token ile sonraki işlemlerde kimliğimizi kanıtlayacağız
-      isAdmin: !!isAdmin
+      isAdmin: !!isAdmin,
+      isSuperAdmin: !!isSuperAdmin,
+      isApprover: !!isApprover
     });
   } catch (error) {
     res.status(401).json({ success: false, message: error.message });
@@ -32,7 +46,10 @@ exports.login = async (req, res) => {
 exports.registerUser = async (req, res) => {
   try {
     const user = req.user || null
-    const isAdmin = user?.user_metadata?.role === 'admin'
+    const userRole = user?.user_metadata?.role
+    const userEmail = user?.email
+    const isSuperAdmin = userEmail === 'veli@marmosium.com' || userRole === 'super_admin'
+    const isAdmin = userRole === 'admin' || isSuperAdmin
     if (!isAdmin) return res.status(403).json({ success: false, message: 'Forbidden' })
 
     const { email, password } = req.body

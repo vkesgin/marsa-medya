@@ -4,7 +4,10 @@ const supabase = require('../config/supabase');
 exports.getContents = async (req, res) => {
   try {
     const user = req.user || null
-    const isAdmin = user?.user_metadata?.role === 'admin'
+    const userRole = user?.user_metadata?.role
+    const userEmail = user?.email
+    const isSuperAdmin = userEmail === 'veli@marmosium.com' || userRole === 'super_admin'
+    const isAdmin = userRole === 'admin' || isSuperAdmin
 
     // Herkese tüm içerikleri döndür - frontend'de filtreleme yaparlar
     let query = supabase
@@ -31,7 +34,10 @@ exports.getContents = async (req, res) => {
 exports.createContent = async (req, res) => {
   try {
     const user = req.user || null
-    const isAdmin = user?.user_metadata?.role === 'admin'
+    const userRole = user?.user_metadata?.role
+    const userEmail = user?.email
+    const isSuperAdmin = userEmail === 'veli@marmosium.com' || userRole === 'super_admin'
+    const isAdmin = userRole === 'admin' || isSuperAdmin
     if (!isAdmin) return res.status(403).json({ success: false, message: 'Forbidden' })
 
     const { company, publish_date, content_info, type, assigned_to } = req.body
@@ -62,7 +68,7 @@ exports.createContent = async (req, res) => {
 exports.updateContent = async (req, res) => {
   try {
     const { id } = req.params
-    const { status, approved, drive_link, admin_approved, revision_notes } = req.body
+    const { status, approved, drive_link, admin_approved, revision_notes, assigned_to } = req.body
     const user = req.user || null
 
     if (!user) return res.status(401).json({ success: false, message: 'Unauthorized' })
@@ -71,13 +77,23 @@ exports.updateContent = async (req, res) => {
     const { data: existing, error: fetchErr } = await supabase.from('contents').select('*').eq('id', id).single()
     if (fetchErr) throw fetchErr
 
-    const isAdmin = user?.user_metadata?.role === 'admin'
-    const allowed = isAdmin || (existing && existing.assigned_to === user.id)
+    const userRole = user?.user_metadata?.role
+    const userEmail = user?.email
+    const isSuperAdmin = userEmail === 'veli@marmosium.com' || userRole === 'super_admin'
+    const isAdmin = userRole === 'admin' || isSuperAdmin
+    const isApprover = userRole === 'approver'
+    const canApprove = isApprover || isSuperAdmin  // Only approver and super admin can approve, regular admin can only view
+    const allowed = isAdmin || isApprover || (existing && existing.assigned_to === user.id)
     if (!allowed) return res.status(403).json({ success: false, message: 'Forbidden' })
 
-    // only admin can modify admin_approved and revision_notes
-    if ((admin_approved !== undefined || revision_notes !== undefined) && !isAdmin) {
-      return res.status(403).json({ success: false, message: 'Only admin can change approval/revision settings' })
+    // only approver and super admin can modify admin_approved and revision_notes
+    if ((admin_approved !== undefined || revision_notes !== undefined) && !canApprove) {
+      return res.status(403).json({ success: false, message: 'Only approver and super admin can change approval/revision settings' })
+    }
+
+    // only super admin can modify assigned_to
+    if (assigned_to !== undefined && !isSuperAdmin) {
+      return res.status(403).json({ success: false, message: 'Only super admin can change assignment' })
     }
 
     // build payload dynamically
@@ -87,6 +103,7 @@ exports.updateContent = async (req, res) => {
     if (drive_link !== undefined) payload.drive_link = drive_link
     if (admin_approved !== undefined) payload.admin_approved = admin_approved
     if (revision_notes !== undefined) payload.revision_notes = revision_notes
+    if (assigned_to !== undefined) payload.assigned_to = assigned_to
     
     const { data, error } = await supabase.from('contents').update(payload).eq('id', id).select()
     if (error) {
@@ -152,9 +169,12 @@ exports.deleteContent = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Content not found' })
     }
 
-    const isAdmin = user?.user_metadata?.role === 'admin'
+    const userRole = user?.user_metadata?.role
+    const userEmail = user?.email
+    const isSuperAdmin = userEmail === 'veli@marmosium.com' || userRole === 'super_admin'
+    const isAdmin = userRole === 'admin' || isSuperAdmin
     
-    console.log(`Delete check - ID: ${id}, User: ${user.id}, IsAdmin: ${isAdmin}`)
+    console.log(`Delete check - ID: ${id}, User: ${user.id}, IsAdmin: ${isAdmin}, IsSuperAdmin: ${isSuperAdmin}`)
     
     if (!isAdmin) {
       console.log(`Delete denied: User ${user.id} is not admin`)
