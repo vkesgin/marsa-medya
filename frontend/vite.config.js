@@ -2,7 +2,7 @@ const react = require('@vitejs/plugin-react')
 const { defineConfig } = require('vite')
 
 module.exports = defineConfig({
-  base: '/marsa-medya/',
+  base: '/icerikyonetimi/',
   plugins: [react()],
   server: {
     port: 5173,
