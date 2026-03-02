@@ -8,6 +8,7 @@ import Header from '../components/Header'
 import { showToast } from '../utils/toast'
 
 export default function Dashboard(){
+  console.log('🔧 Dashboard component function called')
   const [contents, setContents] = useState([])
   const [loading, setLoading] = useState(true)
   const [openModal, setOpenModal] = useState(false)
@@ -94,7 +95,10 @@ export default function Dashboard(){
         localStorage.removeItem('isAdmin')
         navigate('/', { replace: true })
       } else {
-        showToast(err.response?.data?.message || err.message || 'Bir hata oluştu.', 'error', 3000)
+        // Don't block UI - show empty list and brief error
+        if (mountedRef.current) setContents([])
+        const errMsg = err.code === 'ECONNABORTED' ? 'Sunucu yanıt vermiyor (timeout)' : (err.response?.data?.message || err.message || 'Veri yükleme hatası')
+        showToast('⚠️ ' + errMsg, 'error', 2000)
       }
       if (mountedRef.current) setLoading(false)
     } finally {
@@ -276,6 +280,8 @@ export default function Dashboard(){
     // Only admins can delete content
     return isAdmin
   }
+
+  if (loading) return <div className="p-6 text-center">Yükleniyor...</div>
 
   return (
     <div className="p-6">
