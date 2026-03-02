@@ -36,12 +36,6 @@ export default function App(){
     <>
       <Toast />
       <Routes>
-<<<<<<< HEAD
-      <Route path="/" element={<Navigate to="/dashboard" replace />} />
-      <Route path="/dashboard" element={<Dashboard />} />
-      <Route path="/users" element={localStorage.getItem('isAdmin')==='1' ? <Users /> : <Navigate to="/" />} />
-      <Route path="/companies" element={localStorage.getItem('isAdmin')==='1' ? <Companies /> : <Navigate to="/" />} />
-=======
       <Route
         path="/"
         element={isAuth ? <Navigate to="/dashboard" replace /> : <Login onLoginSuccess={() => setIsAuth(true)} />}
