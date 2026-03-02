@@ -1,8 +1,7 @@
 <IfModule mod_rewrite.c>
   RewriteEngine On
   RewriteBase /icerikyonetimi/
-  
-  # If the requested filename is not a directory or file, route to index.html
+  RewriteRule ^index\.html$ - [L]
   RewriteCond %{REQUEST_FILENAME} !-f
   RewriteCond %{REQUEST_FILENAME} !-d
   RewriteRule ^ index.html [QSA,L]

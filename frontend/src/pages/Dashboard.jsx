@@ -14,9 +14,7 @@ export default function Dashboard(){
   const [openModal, setOpenModal] = useState(false)
   const [usersMap, setUsersMap] = useState({})
   const [filterStatus, setFilterStatus] = useState('Tümü')
-  const [assignmentFilter, setAssignmentFilter] = useState(
-    localStorage.getItem('isAdmin') === '1' || localStorage.getItem('isApprover') === '1' ? 'Tümü' : 'Bana Atananlar'
-  )
+  const [assignmentFilter, setAssignmentFilter] = useState('Tümü')
   const [query, setQuery] = useState('')
   const [adminTab, setAdminTab] = useState('content')
   const [descriptionModalOpen, setDescriptionModalOpen] = useState(false)
@@ -126,8 +124,8 @@ export default function Dashboard(){
       if (content.status === 'Paylaşıldı') return false
     }
     
-    // Assignment filter: "Bana Atananlar" seçiliyse sadece kendisine atananları göster (nur für normale User)
-    if (!(isAdmin || isApprover) && assignmentFilter === 'Bana Atananlar' && content.assigned_to !== currentUserId) {
+    // Assignment filter: "Bana Atananlar" seçiliyse sadece kendisine atananları göster (TÜM KULLANICILAR İÇİN)
+    if (assignmentFilter === 'Bana Atananlar' && content.assigned_to !== currentUserId) {
       return false
     }
     
@@ -291,13 +289,7 @@ export default function Dashboard(){
         {isAdmin && <button className="bg-green-600 text-white px-3 py-1 rounded" onClick={()=>setOpenModal(true)}>Yeni İçerik Ekle</button>}
       </div>
 
-      {!(isAdmin || isApprover) && (
-        <div className="bg-blue-50 border border-blue-200 rounded p-3 mb-4">
-          <p className="text-sm text-blue-700">
-            <strong>İçerikler:</strong> Tüm içerikleri görebilir veya sadece size atanan içerikleri filtreleyebilirsiniz.
-          </p>
-        </div>
-      )}
+
 
       {(isAdmin || isApprover) && (
         <div className="flex gap-2 mb-4">
@@ -403,12 +395,10 @@ export default function Dashboard(){
           )}
 
           <div className="flex gap-3 mb-4 flex-wrap">
-            {!isAdmin && !isApprover && (
-              <select value={assignmentFilter} onChange={e=>setAssignmentFilter(e.target.value)} className="p-2 border rounded">
-                <option>Tümü</option>
-                <option>Bana Atananlar</option>
-              </select>
-            )}
+            <select value={assignmentFilter} onChange={e=>setAssignmentFilter(e.target.value)} className="p-2 border rounded">
+              <option>Tümü</option>
+              <option>Bana Atananlar</option>
+            </select>
             <select value={filterStatus} onChange={e=>setFilterStatus(e.target.value)} className="p-2 border rounded">
               <option>Tümü</option>
               <option>Planlandı</option>
