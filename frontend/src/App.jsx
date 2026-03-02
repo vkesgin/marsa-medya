@@ -56,7 +56,6 @@ export default function App(){
         path="/companies"
         element={isAuth && localStorage.getItem('isAdmin')==='1' ? <Companies /> : <Navigate to="/" />}
       />
->>>>>>> dev
       </Routes>
     </>
   )
