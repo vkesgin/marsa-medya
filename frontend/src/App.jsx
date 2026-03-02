@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react'
 import { Routes, Route, Navigate } from 'react-router-dom'
 import Login from './pages/Login'
 import Dashboard from './pages/Dashboard'
+import Profile from './pages/Profile'
 import Users from './pages/Users'
 import Companies from './pages/Companies'
 import Toast from './components/Toast'
@@ -34,6 +35,10 @@ export default function App(){
       <Route
         path="/dashboard"
         element={isAuth ? <Dashboard /> : <Navigate to="/" />}
+      />
+      <Route
+        path="/profile"
+        element={isAuth ? <Profile /> : <Navigate to="/" />}
       />
       <Route
         path="/users"

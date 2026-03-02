@@ -73,3 +73,84 @@ exports.registerUser = async (req, res) => {
     res.status(400).json({ success: false, message: error.message })
   }
 };
+
+// Kullanıcı kendi şifresini değiştirir
+exports.changePassword = async (req, res) => {
+  try {
+    const user = req.user
+    if (!user) return res.status(401).json({ success: false, message: 'Unauthorized' })
+
+    const { currentPassword, newPassword } = req.body
+    if (!currentPassword || !newPassword) {
+      return res.status(400).json({ success: false, message: 'Mevcut parola ve yeni parola gereklidir' })
+    }
+
+    const { error: signInError } = await supabase.auth.signInWithPassword({
+      email: user.email,
+      password: currentPassword
+    })
+
+    if (signInError) {
+      return res.status(401).json({ success: false, message: 'Mevcut parola yanlış' })
+    }
+
+    const supabaseAdmin = require('../config/supabase').supabaseAdmin
+    if (!supabaseAdmin) {
+      return res.status(500).json({ success: false, message: 'Admin key not configured' })
+    }
+
+    const { data, error } = await supabaseAdmin.auth.admin.updateUserById(user.id, {
+      password: newPassword
+    })
+
+    if (error) throw error
+
+    res.status(200).json({ 
+      success: true, 
+      message: 'Parola başarıyla güncellendi',
+      data 
+    })
+  } catch (error) {
+    res.status(400).json({ success: false, message: error.message })
+  }
+};
+
+// Superadmin başka bir kullanıcının şifresini değiştirir
+exports.changeUserPassword = async (req, res) => {
+  try {
+    const user = req.user
+    if (!user) return res.status(401).json({ success: false, message: 'Unauthorized' })
+
+    const userRole = user?.user_metadata?.role
+    const userEmail = user?.email
+    const isSuperAdmin = userEmail === 'veli@marmosium.com' || userRole === 'super_admin'
+
+    if (!isSuperAdmin) {
+      return res.status(403).json({ success: false, message: 'Forbidden - Sadece SuperAdmin yapabilir' })
+    }
+
+    const { userId, newPassword } = req.body
+    if (!userId || !newPassword) {
+      return res.status(400).json({ success: false, message: 'User ID ve parola gereklidir' })
+    }
+
+    const supabaseAdmin = require('../config/supabase').supabaseAdmin
+    if (!supabaseAdmin) {
+      return res.status(500).json({ success: false, message: 'Admin key not configured' })
+    }
+
+    const { data, error } = await supabaseAdmin.auth.admin.updateUserById(userId, {
+      password: newPassword
+    })
+
+    if (error) throw error
+
+    res.status(200).json({ 
+      success: true, 
+      message: 'Kullanıcı şifresi başarıyla güncellendi',
+      data 
+    })
+  } catch (error) {
+    res.status(400).json({ success: false, message: error.message })
+  }
+};

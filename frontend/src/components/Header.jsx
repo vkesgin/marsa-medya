@@ -23,10 +23,11 @@ export default function Header(){
   return (
     <div className="flex items-center justify-between mb-6">
       <div>
-        <h1 className="text-xl font-semibold">İçerik Planlama</h1>
+        <h1 className="text-xl font-semibold">MarsaMedya</h1>
         <p className="text-sm text-gray-600">{email}</p>
       </div>
       <div className="flex items-center gap-2 flex-wrap">
+        <button onClick={()=>navigate('/profile')} className="px-3 py-1 bg-blue-600 text-white rounded text-sm hover:bg-blue-700">Profil</button>
         {isSuperAdmin && (
           <button onClick={()=>navigate('/users')} className="px-3 py-1 bg-indigo-600 text-white rounded text-sm hover:bg-indigo-700">Kullanıcılar</button>
         )}
