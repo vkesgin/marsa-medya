@@ -1,10 +1,12 @@
 import React, { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import Header from '../components/Header'
 import Toast from '../components/Toast'
 import { showToast } from '../utils/toast'
 import { authService } from '../services/authService'
 
 export default function Profile() {
+  const navigate = useNavigate()
   const user = JSON.parse(localStorage.getItem('user') || 'null')
   const [currentPassword, setCurrentPassword] = useState('')
   const [newPassword, setNewPassword] = useState('')
@@ -52,8 +54,17 @@ export default function Profile() {
     <div className="p-6 max-w-4xl mx-auto">
       <Header />
       
+      <div className="flex justify-between items-center mb-6">
+        <h2 className="text-2xl font-bold">Profil</h2>
+        <button 
+          onClick={() => navigate('/dashboard')} 
+          className="px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600"
+        >
+          ← Geri
+        </button>
+      </div>
+      
       <div className="bg-white rounded-lg shadow p-6">
-        <h2 className="text-2xl font-bold mb-2">Profil</h2>
         <p className="text-gray-600 mb-6">Email: <strong>{user?.email}</strong></p>
 
         <div className="border-t pt-6">
