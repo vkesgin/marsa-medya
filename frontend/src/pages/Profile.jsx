@@ -31,10 +31,7 @@ export default function Profile() {
 
     setLoading(true)
     try {
-      const response = await authService.changePassword({
-        currentPassword,
-        newPassword
-      })
+      const response = await authService.changePassword(currentPassword, newPassword)
 
       if (response.success) {
         showToast('Parola başarıyla güncellendi', 'success', 3000)
