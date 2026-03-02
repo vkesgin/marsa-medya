@@ -1,7 +1,7 @@
 {
-  "name": "benim-node-projem",
+  "name": "marsa-medya",
   "version": "1.0.0",
-  "description": "",
+  "description": "MarsaMedya - İçerik Yönetimi",
   "private": true,
   "scripts": {
     "start": "node src/server.js",
