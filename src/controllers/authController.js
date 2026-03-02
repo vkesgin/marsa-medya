@@ -154,3 +154,97 @@ exports.changeUserPassword = async (req, res) => {
     res.status(400).json({ success: false, message: error.message })
   }
 };
+
+// Generate temporary password for user (SuperAdmin only)
+exports.generateTemporaryPassword = async (req, res) => {
+  try {
+    const user = req.user
+    if (!user) return res.status(401).json({ success: false, message: 'Unauthorized' })
+
+    const userRole = user?.user_metadata?.role
+    const userEmail = user?.email
+    const isSuperAdmin = userEmail === 'veli@marmosium.com' || userRole === 'super_admin'
+
+    if (!isSuperAdmin) {
+      return res.status(403).json({ success: false, message: 'Forbidden - Sadece SuperAdmin yapabilir' })
+    }
+
+    const { userId } = req.body
+    if (!userId) {
+      return res.status(400).json({ success: false, message: 'User ID gereklidir' })
+    }
+
+    // Generate random password: 12 chars with mix of uppercase, lowercase, numbers, special chars
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%'
+    let tempPassword = ''
+    for (let i = 0; i < 12; i++) {
+      tempPassword += chars.charAt(Math.floor(Math.random() * chars.length))
+    }
+
+    const supabaseAdmin = require('../config/supabase').supabaseAdmin
+    if (!supabaseAdmin) {
+      return res.status(500).json({ success: false, message: 'Admin key not configured' })
+    }
+
+    // Set temporary password
+    const { data, error } = await supabaseAdmin.auth.admin.updateUserById(userId, {
+      password: tempPassword
+    })
+
+    if (error) throw error
+
+    res.status(200).json({ 
+      success: true, 
+      message: 'Geçici parola oluşturuldu',
+      temporaryPassword: tempPassword,
+      note: 'Bu parolayı kullanıcıya verin ve ilk giriş sonunda değiştirtmeyi tavsiye edin'
+    })
+  } catch (error) {
+    res.status(400).json({ success: false, message: error.message })
+  }
+};
+
+// Send password reset email to user (SuperAdmin only)
+exports.sendPasswordResetEmail = async (req, res) => {
+  try {
+    const user = req.user
+    if (!user) return res.status(401).json({ success: false, message: 'Unauthorized' })
+
+    const userRole = user?.user_metadata?.role
+    const userEmail = user?.email
+    const isSuperAdmin = userEmail === 'veli@marmosium.com' || userRole === 'super_admin'
+
+    if (!isSuperAdmin) {
+      return res.status(403).json({ success: false, message: 'Forbidden - Sadece SuperAdmin yapabilir' })
+    }
+
+    const { userEmail: targetEmail } = req.body
+    if (!targetEmail) {
+      return res.status(400).json({ success: false, message: 'Email gereklidir' })
+    }
+
+    const supabaseAdmin = require('../config/supabase').supabaseAdmin
+    if (!supabaseAdmin) {
+      return res.status(500).json({ success: false, message: 'Admin key not configured' })
+    }
+
+    // Send password reset email
+    const { data, error } = await supabaseAdmin.auth.admin.generateLink({
+      type: 'recovery',
+      email: targetEmail,
+      options: {
+        redirectTo: `${process.env.FRONTEND_URL || 'http://localhost:5173'}/reset-password`
+      }
+    })
+
+    if (error) throw error
+
+    res.status(200).json({ 
+      success: true, 
+      message: `Parola sıfırlama linki ${targetEmail} adresine gönderildi`,
+      link: data?.properties?.email_link // For testing purposes only
+    })
+  } catch (error) {
+    res.status(400).json({ success: false, message: error.message })
+  }
+};

@@ -22,6 +22,12 @@ export default function Users(){
   const [confirmPassword, setConfirmPassword] = useState('')
   const [passwordLoading, setPasswordLoading] = useState(false)
 
+  // Temporary password modal state
+  const [showTempPasswordModal, setShowTempPasswordModal] = useState(false)
+  const [tempPasswordUser, setTempPasswordUser] = useState(null)
+  const [generatedTempPassword, setGeneratedTempPassword] = useState('')
+  const [tempPasswordLoading, setTempPasswordLoading] = useState(false)
+
   const fetchUsers = async () => {
     try{
       const res = await api.get('/users')
@@ -108,6 +114,24 @@ export default function Users(){
       setPasswordLoading(false)
     }
   }
+
+  const handleGenerateTempPassword = async () => {
+    setTempPasswordLoading(true)
+    try {
+      const response = await authService.generateTemporaryPassword(tempPasswordUser.id)
+      setGeneratedTempPassword(response.temporaryPassword)
+      showToast('Geçici parola oluşturuldu (aşağıda kopyalayabilirsiniz)', 'success', 2000)
+    } catch (error) {
+      showToast(error.message || 'Geçici parola oluşturulamadı', 'error', 3000)
+    } finally {
+      setTempPasswordLoading(false)
+    }
+  }
+
+  const copyToClipboard = (text) => {
+    navigator.clipboard.writeText(text)
+    showToast('Kopyalandı!', 'success', 1500)
+  }
   
   const getRoleLabel = (role) => {
     const roleMap = {
@@ -192,6 +216,16 @@ export default function Users(){
                     >
                       Parola
                     </button>
+                    <button 
+                      onClick={() => {
+                        setTempPasswordUser(u)
+                        setShowTempPasswordModal(true)
+                        setGeneratedTempPassword('')
+                      }} 
+                      className="px-2 py-1 bg-purple-500 text-white rounded text-sm hover:bg-purple-600"
+                    >
+                      Reset
+                    </button>
                     <button onClick={()=>deleteUser(u.id)} className="px-2 py-1 bg-red-500 text-white rounded text-sm hover:bg-red-600">
                       Sil
                     </button>
@@ -261,6 +295,77 @@ export default function Users(){
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Password Reset Modal */}
+      {showTempPasswordModal && tempPasswordUser && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+            <h3 className="text-lg font-semibold mb-4">Parola Sıfırla</h3>
+            <p className="text-sm text-gray-600 mb-4">
+              Kullanıcı: <strong>{tempPasswordUser.email}</strong>
+            </p>
+            
+            {!generatedTempPassword ? (
+              <div className="space-y-4">
+                <p className="text-sm text-gray-700">
+                  Seçin:
+                </p>
+                <button
+                  onClick={handleGenerateTempPassword}
+                  disabled={tempPasswordLoading}
+                  className="w-full bg-green-600 text-white py-2 rounded-lg hover:bg-green-700 disabled:opacity-50 font-medium mb-2"
+                >
+                  {tempPasswordLoading ? 'Oluşturuluyor...' : '📋 Geçici Parola Oluştur'}
+                </button>
+                <button
+                  onClick={() => {
+                    authService.sendPasswordResetEmail(tempPasswordUser.email)
+                      .then(() => {
+                        showToast('Parola sıfırlama linki email\'e gönderildi', 'success', 2000)
+                        setShowTempPasswordModal(false)
+                        setTempPasswordUser(null)
+                      })
+                      .catch(err => {
+                        showToast(err.message || 'Email gönderilemedi', 'error', 3000)
+                      })
+                  }}
+                  className="w-full bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 font-medium"
+                >
+                  🔗 Parola Sıfırlama Linki Gönder
+                </button>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                <p className="text-sm text-gray-700 font-medium">Geçici Parola:</p>
+                <div className="bg-gray-100 p-3 rounded border border-gray-300 flex items-center justify-between gap-2">
+                  <code className="font-mono font-bold text-blue-600 break-all">{generatedTempPassword}</code>
+                  <button
+                    onClick={() => copyToClipboard(generatedTempPassword)}
+                    className="flex-shrink-0 px-2 py-1 bg-blue-500 text-white rounded text-xs hover:bg-blue-600 whitespace-nowrap"
+                  >
+                    Kopyala
+                  </button>
+                </div>
+                <p className="text-xs text-gray-600 italic">
+                  ⚠️ Bu parolayı kullanıcıya güvenli bir şekilde iletiniz. Kullanıcı giriş yaptıktan sonra şifresini değiştirebilir.
+                </p>
+              </div>
+            )}
+
+            <button
+              type="button"
+              onClick={() => {
+                setShowTempPasswordModal(false)
+                setTempPasswordUser(null)
+                setGeneratedTempPassword('')
+              }}
+              className="w-full mt-4 bg-gray-300 text-gray-700 py-2 rounded-lg hover:bg-gray-400 font-medium"
+            >
+              Kapat
+            </button>
           </div>
         </div>
       )}

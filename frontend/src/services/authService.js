@@ -146,6 +146,54 @@ export const changeUserPassword = async (userId, newPassword) => {
 }
 
 /**
+ * Generate temporary password for a user (SuperAdmin only)
+ */
+export const generateTemporaryPassword = async (userId) => {
+  const API_BASE_URL = import.meta.env.VITE_API_URL || '/api'
+  const token = localStorage.getItem('sb_access_token')
+  
+  const response = await fetch(`${API_BASE_URL}/auth/admin/generate-temp-password`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`
+    },
+    body: JSON.stringify({ userId })
+  })
+
+  if (!response.ok) {
+    const errorData = await response.json()
+    throw new Error(errorData.message || 'Geçici parola oluşturulamadı')
+  }
+
+  return await response.json()
+}
+
+/**
+ * Send password reset email to user (SuperAdmin only)
+ */
+export const sendPasswordResetEmail = async (userEmail) => {
+  const API_BASE_URL = import.meta.env.VITE_API_URL || '/api'
+  const token = localStorage.getItem('sb_access_token')
+  
+  const response = await fetch(`${API_BASE_URL}/auth/admin/send-password-reset`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`
+    },
+    body: JSON.stringify({ userEmail })
+  })
+
+  if (!response.ok) {
+    const errorData = await response.json()
+    throw new Error(errorData.message || 'Parola sıfırlama emaili gönderilemedi')
+  }
+
+  return await response.json()
+}
+
+/**
  * Export as object for convenience
  */
 export const authService = {
@@ -157,5 +205,7 @@ export const authService = {
   getStoredUser,
   isAdmin,
   changePassword,
-  changeUserPassword
+  changeUserPassword,
+  generateTemporaryPassword,
+  sendPasswordResetEmail
 }
