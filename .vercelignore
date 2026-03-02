@@ -1,0 +1,7 @@
+src/
+index.js
+railway.json
+.env
+.env.local
+node_modules/
+.git/
