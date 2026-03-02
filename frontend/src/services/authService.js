@@ -93,3 +93,69 @@ export const getStoredUser = () => {
 export const isAdmin = () => {
   return localStorage.getItem('isAdmin') === '1'
 }
+/**
+ * Kullanıcı şifresini değiştirir
+ */
+export const changePassword = async (currentPassword, newPassword) => {
+  try {
+    const response = await fetch(`${API_BASE_URL}/auth/change-password`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${getStoredToken()}`
+      },
+      body: JSON.stringify({ currentPassword, newPassword })
+    })
+
+    const data = await response.json()
+    
+    if (!response.ok) {
+      throw new Error(data.message || 'Parola güncellenemedi')
+    }
+
+    return data
+  } catch (error) {
+    throw error
+  }
+}
+
+/**
+ * Superadmin diğer kullanıcının şifresini değiştirir
+ */
+export const changeUserPassword = async (userId, newPassword) => {
+  try {
+    const response = await fetch(`${API_BASE_URL}/auth/admin/change-password`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${getStoredToken()}`
+      },
+      body: JSON.stringify({ userId, newPassword })
+    })
+
+    const data = await response.json()
+    
+    if (!response.ok) {
+      throw new Error(data.message || 'Parola güncellenemedi')
+    }
+
+    return data
+  } catch (error) {
+    throw error
+  }
+}
+
+/**
+ * Export as object for convenience
+ */
+export const authService = {
+  loginUser,
+  getCurrentUser,
+  registerUser,
+  logoutUser,
+  getStoredToken,
+  getStoredUser,
+  isAdmin,
+  changePassword,
+  changeUserPassword
+}
