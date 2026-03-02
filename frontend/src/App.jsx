@@ -8,11 +8,16 @@ import Toast from './components/Toast'
 
 export default function App(){
   const [isAuth, setIsAuth] = useState(!!localStorage.getItem('sb_access_token'))
+  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     const syncAuthState = () => {
       setIsAuth(!!localStorage.getItem('sb_access_token'))
     }
+
+    // Debug: Log auth state
+    console.log('Auth state:', isAuth, 'Token:', localStorage.getItem('sb_access_token'))
+    setLoading(false)
 
     window.addEventListener('storage', syncAuthState)
     window.addEventListener('auth-changed', syncAuthState)
@@ -23,28 +28,18 @@ export default function App(){
     }
   }, [])
 
+  if (loading) return <div style={{padding: '20px'}}>Loading...</div>
+  if (!isAuth) return <Login onLoginSuccess={() => setIsAuth(true)} />
+
   return (
     <>
       <Toast />
       <Routes>
-      <Route
-        path="/"
-        element={isAuth ? <Navigate to="/dashboard" replace /> : <Login onLoginSuccess={() => setIsAuth(true)} />}
-      />
-      <Route
-        path="/dashboard"
-        element={isAuth ? <Dashboard /> : <Navigate to="/" />}
-      />
-      <Route
-        path="/users"
-        element={isAuth && localStorage.getItem('isAdmin')==='1' ? <Users /> : <Navigate to="/" />}
-      />
-      <Route
-        path="/companies"
-        element={isAuth && localStorage.getItem('isAdmin')==='1' ? <Companies /> : <Navigate to="/" />}
-      />
+      <Route path="/" element={<Navigate to="/dashboard" replace />} />
+      <Route path="/dashboard" element={<Dashboard />} />
+      <Route path="/users" element={localStorage.getItem('isAdmin')==='1' ? <Users /> : <Navigate to="/" />} />
+      <Route path="/companies" element={localStorage.getItem('isAdmin')==='1' ? <Companies /> : <Navigate to="/" />} />
       </Routes>
     </>
   )
-}
 
