@@ -11,7 +11,15 @@ const userRoutes = require('./routes/userRoutes')
 const app = express()
 
 app.use(helmet())
-app.use(cors())
+app.use(cors({
+  origin: [
+    'http://localhost:5173',
+    'https://vkesgin.github.io',
+    'https://marsamedya.com',
+    'http://marsamedya.com'
+  ],
+  credentials: true
+}))
 app.use(express.json())
 app.use(morgan('dev'))
 
