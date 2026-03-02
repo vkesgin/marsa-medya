@@ -2,6 +2,7 @@
   "name": "benim-node-projem",
   "version": "1.0.0",
   "description": "",
+  "private": true,
   "main": "index.js",
   "scripts": {
     "start": "node src/server.js",
