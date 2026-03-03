@@ -182,7 +182,18 @@ export default function Dashboard(){
   useEffect(() => {
     mountedRef.current = true
     fetchContents()
-    return () => { mountedRef.current = false }
+    
+    // Yeni bildirim geldiğinde otomatik refresh
+    const handleNewNotification = () => {
+      console.log('🔄 Dashboard: Yeni bildirim event aldı, fetchContents çağrılıyor')
+      fetchContents()
+    }
+    window.addEventListener('new-notification', handleNewNotification)
+    
+    return () => { 
+      mountedRef.current = false
+      window.removeEventListener('new-notification', handleNewNotification)
+    }
   }, [])
 
   useEffect(() => {

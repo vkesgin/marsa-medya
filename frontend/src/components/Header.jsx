@@ -29,10 +29,18 @@ export default function Header(){
       const newUnreadCount = newNotifications.filter(item => !item.is_read).length
 
       // İlk fetch'te sadece baseline al; sonraki fetch'lerde yeni gelenleri bildir
-      if (initializedFetchRef.current && browserNotificationsEnabled && newUnreadCount > prevUnreadCountRef.current) {
+      if (initializedFetchRef.current && newUnreadCount > prevUnreadCountRef.current) {
         const latestUnread = newNotifications.filter(item => !item.is_read)[0]
         if (latestUnread) {
-          showBrowserNotification(latestUnread.title, latestUnread.message)
+          console.log('🔔 Yeni bildirim:', latestUnread.title, '| Browser enabled:', browserNotificationsEnabled, '| Permission:', Notification?.permission)
+          
+          // Tarayıcı bildirimi göster
+          if (browserNotificationsEnabled) {
+            showBrowserNotification(latestUnread.title, latestUnread.message)
+          }
+          
+          // Dashboard'ı otomatik yenile
+          window.dispatchEvent(new CustomEvent('new-notification', { detail: latestUnread }))
         }
       }
 
@@ -47,19 +55,29 @@ export default function Header(){
   }
 
   const showBrowserNotification = (title, message) => {
+    console.log('📢 showBrowserNotification çağrıldı:', { title, message, hasNotification: 'Notification' in window, permission: Notification?.permission })
+    
     if ('Notification' in window && Notification.permission === 'granted') {
-      const notification = new Notification(title, {
-        body: message,
-        icon: '/favicon.ico',
-        badge: '/favicon.ico',
-        tag: 'marsa-medya-notification',
-        requireInteraction: false
-      })
-      
-      notification.onclick = () => {
-        window.focus()
-        notification.close()
+      try {
+        const notification = new Notification(title, {
+          body: message,
+          icon: '/favicon.ico',
+          badge: '/favicon.ico',
+          tag: 'marsa-medya-notification',
+          requireInteraction: false
+        })
+        
+        console.log('✅ Tarayıcı bildirimi oluşturuldu')
+        
+        notification.onclick = () => {
+          window.focus()
+          notification.close()
+        }
+      } catch (error) {
+        console.error('❌ Tarayıcı bildirimi hatası:', error)
       }
+    } else {
+      console.warn('⚠️ Tarayıcı bildirimi gösterilemedi - izin:', Notification?.permission)
     }
   }
 
