@@ -7,6 +7,7 @@ export default function Header(){
   const navigate = useNavigate()
   const panelRef = useRef(null)
   const prevUnreadCountRef = useRef(0)
+  const initializedFetchRef = useRef(false)
   const user = JSON.parse(localStorage.getItem('user') || 'null')
   const email = user?.email || 'Anon'
   const isAdmin = localStorage.getItem('isAdmin') === '1'
@@ -14,6 +15,7 @@ export default function Header(){
   const [notifications, setNotifications] = useState([])
   const [notificationsOpen, setNotificationsOpen] = useState(false)
   const [browserNotificationsEnabled, setBrowserNotificationsEnabled] = useState(false)
+  const [notificationPermission, setNotificationPermission] = useState('default')
 
   const unreadCount = useMemo(
     () => notifications.filter(item => !item.is_read).length,
@@ -25,18 +27,16 @@ export default function Header(){
       const res = await api.get('/notifications')
       const newNotifications = res.data.data || []
       const newUnreadCount = newNotifications.filter(item => !item.is_read).length
-      
-      // Eğer önceki fetch'ten sonra yeni bildirim geldiyse tarayıcı bildirimi göster
-      if (browserNotificationsEnabled && newUnreadCount > prevUnreadCountRef.current) {
+
+      // İlk fetch'te sadece baseline al; sonraki fetch'lerde yeni gelenleri bildir
+      if (initializedFetchRef.current && browserNotificationsEnabled && newUnreadCount > prevUnreadCountRef.current) {
         const latestUnread = newNotifications.filter(item => !item.is_read)[0]
         if (latestUnread) {
           showBrowserNotification(latestUnread.title, latestUnread.message)
         }
-    // Tarayıcı bildirimi izni kontrol et ve iste
-    requestNotificationPermission()
-    
       }
-      
+
+      initializedFetchRef.current = true
       prevUnreadCountRef.current = newUnreadCount
       setNotifications(newNotifications)
     } catch (err) {
@@ -65,25 +65,41 @@ export default function Header(){
 
   const requestNotificationPermission = async () => {
     if (!('Notification' in window)) {
+      showToast('Bu tarayıcı bildirim desteklemiyor', 'error', 2000)
       console.warn('Bu tarayıcı bildirim desteklemiyor')
       return
     }
 
-    if (Notification.permission === 'granted') {
-      setBrowserNotificationsEnabled(true)
+    if (Notification.permission === 'denied') {
+      setNotificationPermission('denied')
+      showToast('Tarayıcı bildirimi engelli. Site ayarlarından izin verin.', 'error', 2500)
       return
     }
 
-    if (Notification.permission !== 'denied') {
-      const permission = await Notification.requestPermission()
-      if (permission === 'granted') {
-        setBrowserNotificationsEnabled(true)
-        showToast('Tarayıcı bildirimleri açıldı', 'success', 2000)
-      }
+    if (Notification.permission === 'granted') {
+      setNotificationPermission('granted')
+      setBrowserNotificationsEnabled(true)
+      showToast('Tarayıcı bildirimleri zaten açık', 'success', 1500)
+      return
+    }
+
+    const permission = await Notification.requestPermission()
+    setNotificationPermission(permission)
+    if (permission === 'granted') {
+      setBrowserNotificationsEnabled(true)
+      showToast('Tarayıcı bildirimleri açıldı', 'success', 2000)
+    } else {
+      setBrowserNotificationsEnabled(false)
+      showToast('Bildirim izni verilmedi', 'error', 2000)
     }
   }
 
   useEffect(() => {
+    if ('Notification' in window) {
+      const perm = Notification.permission || 'default'
+      setNotificationPermission(perm)
+      setBrowserNotificationsEnabled(perm === 'granted')
+    }
     fetchNotifications()
     const intervalId = setInterval(fetchNotifications, 20000)
     return () => clearInterval(intervalId)
@@ -148,6 +164,16 @@ export default function Header(){
             </span>
           )}
         </button>
+
+        {notificationPermission !== 'granted' && (
+          <button
+            onClick={requestNotificationPermission}
+            className="px-3 py-1 bg-amber-500 text-white rounded text-sm hover:bg-amber-600"
+            title="Tarayıcı bildirim izni"
+          >
+            🔔 İzin Ver
+          </button>
+        )}
 
         {notificationsOpen && (
           <div className="absolute right-0 top-10 w-96 max-h-96 overflow-auto bg-white border border-gray-200 rounded-lg shadow-lg z-50">
