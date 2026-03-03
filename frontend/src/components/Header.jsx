@@ -6,12 +6,14 @@ import api from '../services/api'
 export default function Header(){
   const navigate = useNavigate()
   const panelRef = useRef(null)
+  const prevUnreadCountRef = useRef(0)
   const user = JSON.parse(localStorage.getItem('user') || 'null')
   const email = user?.email || 'Anon'
   const isAdmin = localStorage.getItem('isAdmin') === '1'
   const isSuperAdmin = localStorage.getItem('isSuperAdmin') === '1'
   const [notifications, setNotifications] = useState([])
   const [notificationsOpen, setNotificationsOpen] = useState(false)
+  const [browserNotificationsEnabled, setBrowserNotificationsEnabled] = useState(false)
 
   const unreadCount = useMemo(
     () => notifications.filter(item => !item.is_read).length,
@@ -21,10 +23,62 @@ export default function Header(){
   const fetchNotifications = async () => {
     try {
       const res = await api.get('/notifications')
-      setNotifications(res.data.data || [])
+      const newNotifications = res.data.data || []
+      const newUnreadCount = newNotifications.filter(item => !item.is_read).length
+      
+      // Eğer önceki fetch'ten sonra yeni bildirim geldiyse tarayıcı bildirimi göster
+      if (browserNotificationsEnabled && newUnreadCount > prevUnreadCountRef.current) {
+        const latestUnread = newNotifications.filter(item => !item.is_read)[0]
+        if (latestUnread) {
+          showBrowserNotification(latestUnread.title, latestUnread.message)
+        }
+    // Tarayıcı bildirimi izni kontrol et ve iste
+    requestNotificationPermission()
+    
+      }
+      
+      prevUnreadCountRef.current = newUnreadCount
+      setNotifications(newNotifications)
     } catch (err) {
       if (err.response?.status !== 401) {
         console.error('Notification fetch error:', err.response?.data?.message || err.message)
+      }
+    }
+  }
+
+  const showBrowserNotification = (title, message) => {
+    if ('Notification' in window && Notification.permission === 'granted') {
+      const notification = new Notification(title, {
+        body: message,
+        icon: '/favicon.ico',
+        badge: '/favicon.ico',
+        tag: 'marsa-medya-notification',
+        requireInteraction: false
+      })
+      
+      notification.onclick = () => {
+        window.focus()
+        notification.close()
+      }
+    }
+  }
+
+  const requestNotificationPermission = async () => {
+    if (!('Notification' in window)) {
+      console.warn('Bu tarayıcı bildirim desteklemiyor')
+      return
+    }
+
+    if (Notification.permission === 'granted') {
+      setBrowserNotificationsEnabled(true)
+      return
+    }
+
+    if (Notification.permission !== 'denied') {
+      const permission = await Notification.requestPermission()
+      if (permission === 'granted') {
+        setBrowserNotificationsEnabled(true)
+        showToast('Tarayıcı bildirimleri açıldı', 'success', 2000)
       }
     }
   }
