@@ -4,7 +4,7 @@ import { showToast } from '../utils/toast'
 
 const CONTENT_TYPES = ['Story', 'Post', 'Reels']
 
-export default function ContentModal({ open, onClose, onCreated }){
+export default function ContentModal({ open, onClose, onCreated, editingContent }){
   const [form, setForm] = useState({ company: '', publish_date: '', content_info: '', type: '' })
   const [loading, setLoading] = useState(false)
   const [companies, setCompanies] = useState([])
@@ -14,7 +14,17 @@ export default function ContentModal({ open, onClose, onCreated }){
 
   useEffect(()=>{
     if(!open) return
-    setForm({ company: '', publish_date: '', content_info: '', type: '' })
+    // Eğer editingContent varsa formu doldur
+    if(editingContent){
+      setForm({
+        company: editingContent.company || '',
+        publish_date: editingContent.publish_date || '',
+        content_info: editingContent.content_info || '',
+        type: editingContent.type || ''
+      })
+    } else {
+      setForm({ company: '', publish_date: '', content_info: '', type: '' })
+    }
     setErrors({})
     setShowNewCompany(false)
     setNewCompany('')
@@ -30,7 +40,7 @@ export default function ContentModal({ open, onClose, onCreated }){
       }
     }
     fetchData()
-  }, [open])
+  }, [open, editingContent])
 
   if(!open) return null
 
@@ -50,8 +60,15 @@ export default function ContentModal({ open, onClose, onCreated }){
     if(!validate()) return
     setLoading(true)
     try{
-      await api.post('/contents', form)
-      showToast('İçerik başarıyla eklendi.', 'success', 2000)
+      if(editingContent){
+        // Düzenleme modu
+        await api.patch(`/contents/${editingContent.id}`, form)
+        showToast('İçerik başarıyla güncellendi.', 'success', 2000)
+      } else {
+        // Yeni ekleme modu
+        await api.post('/contents', form)
+        showToast('İçerik başarıyla eklendi.', 'success', 2000)
+      }
       onCreated && onCreated()
       setTimeout(()=> onClose && onClose(), 800)
     }catch(err){
@@ -62,7 +79,7 @@ export default function ContentModal({ open, onClose, onCreated }){
   return (
     <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
       <form onSubmit={submit} className="bg-white p-6 rounded w-full max-w-lg max-h-[90vh] overflow-y-auto">
-        <h3 className="text-lg mb-4">Yeni İçerik</h3>
+        <h3 className="text-lg mb-4">{editingContent ? 'İçeriği Düzenle' : 'Yeni İçerik'}</h3>
         
         <label className="block mb-3">
           <div className="font-medium text-sm mb-1">Şirket</div>

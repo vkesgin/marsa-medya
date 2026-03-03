@@ -25,6 +25,7 @@ export default function Dashboard(){
   const [selectedDescription, setSelectedDescription] = useState('')
   const [revisionModalOpen, setRevisionModalOpen] = useState(false)
   const [selectedRevision, setSelectedRevision] = useState('')
+  const [editingContent, setEditingContent] = useState(null)
   const [linkEditingId, setLinkEditingId] = useState(null)
   const [linkEditingValue, setLinkEditingValue] = useState('')
   const [editingAssignedId, setEditingAssignedId] = useState(null)
@@ -628,13 +629,27 @@ export default function Dashboard(){
                                   </div>
                                 )}
                                 {canDeleteContent(item) && (
-                                  <button
-                                    onClick={() => deleteContent(item.id)}
-                                    className="px-2 py-1 bg-red-500 text-white rounded text-xs hover:bg-red-600"
-                                    title="İçeriği sil"
-                                  >
-                                    🗑️ Sil
-                                  </button>
+                                  <div className="flex gap-2">
+                                    {(isAdmin || isSuperAdmin) && (
+                                      <button
+                                        onClick={() => {
+                                          setEditingContent(item)
+                                          setOpenModal(true)
+                                        }}
+                                        className="px-2 py-1 bg-blue-500 text-white rounded text-xs hover:bg-blue-600"
+                                        title="İçeriği düzenle"
+                                      >
+                                        ✏️ Düzenle
+                                      </button>
+                                    )}
+                                    <button
+                                      onClick={() => deleteContent(item.id)}
+                                      className="px-2 py-1 bg-red-500 text-white rounded text-xs hover:bg-red-600"
+                                      title="İçeriği sil"
+                                    >
+                                      🗑️ Sil
+                                    </button>
+                                  </div>
                                 )}
                               </div>
                             </div>
@@ -940,7 +955,19 @@ export default function Dashboard(){
         onClose={() => setRevisionModalOpen(false)}
       />
 
-      <ContentModal open={openModal} onClose={()=>setOpenModal(false)} onCreated={()=>{setOpenModal(false); fetchContents();}} />
+      <ContentModal 
+        open={openModal} 
+        onClose={() => {
+          setOpenModal(false)
+          setEditingContent(null)
+        }} 
+        onCreated={() => {
+          setOpenModal(false)
+          setEditingContent(null)
+          fetchContents()
+        }} 
+        editingContent={editingContent}
+      />
     </div>
   )
 }

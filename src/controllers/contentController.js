@@ -86,6 +86,30 @@ exports.createContent = async (req, res) => {
       })
     }
 
+    // Tüm admin ve superadmin'lere bildirim gönder
+    try {
+      const supabaseAdmin = require('../config/supabase').supabaseAdmin
+      if (supabaseAdmin) {
+        const { data: allUsers } = await supabaseAdmin.auth.admin.listUsers()
+        const admins = (allUsers?.users || []).filter(u => {
+          const role = u.user_metadata?.role
+          const email = u.email
+          return role === 'admin' || role === 'super_admin' || email === 'veli@marmosium.com'
+        })
+        for (const adminUser of admins) {
+          await createNotificationSafe({
+            userId: adminUser.id,
+            contentId: data?.[0]?.id || null,
+            type: 'new_content',
+            title: 'Yeni içerik eklendi',
+            message: `${company} için yeni içerik oluşturuldu.`
+          })
+        }
+      }
+    } catch (notifErr) {
+      console.warn('Admin notification failed:', notifErr.message)
+    }
+
     res.status(201).json({ success: true, message: 'İçerik başarıyla planlandı!', data: data })
   } catch (error) {
     res.status(400).json({ success: false, message: error.message })
@@ -96,7 +120,7 @@ exports.createContent = async (req, res) => {
 exports.updateContent = async (req, res) => {
   try {
     const { id } = req.params
-    const { status, approved, drive_link, admin_approved, revision_notes, assigned_to } = req.body
+    const { status, approved, drive_link, admin_approved, revision_notes, assigned_to, company, publish_date, content_info, type } = req.body
     const user = req.user || null
 
     if (!user) return res.status(401).json({ success: false, message: 'Unauthorized' })
@@ -124,6 +148,11 @@ exports.updateContent = async (req, res) => {
       return res.status(403).json({ success: false, message: 'Only super admin can change assignment' })
     }
 
+    // only admin or super admin can modify company, publish_date, content_info, type
+    if ((company !== undefined || publish_date !== undefined || content_info !== undefined || type !== undefined) && !isAdmin) {
+      return res.status(403).json({ success: false, message: 'Only admin or super admin can modify content details' })
+    }
+
     // build payload dynamically
     const payload = {}
     if (status !== undefined) payload.status = status
@@ -132,6 +161,10 @@ exports.updateContent = async (req, res) => {
     if (admin_approved !== undefined) payload.admin_approved = admin_approved
     if (revision_notes !== undefined) payload.revision_notes = revision_notes
     if (assigned_to !== undefined) payload.assigned_to = assigned_to
+    if (company !== undefined) payload.company = company
+    if (publish_date !== undefined) payload.publish_date = publish_date
+    if (content_info !== undefined) payload.content_info = content_info
+    if (type !== undefined) payload.type = type
     
     const { data, error } = await supabase.from('contents').update(payload).eq('id', id).select()
     if (error) {
