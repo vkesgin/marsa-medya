@@ -236,3 +236,62 @@ exports.deleteContent = async (req, res) => {
     res.status(400).json({ success: false, message: error.message })
   }
 }
+
+// 5. İçerik yorumlarını listeleme
+exports.getContentComments = async (req, res) => {
+  try {
+    const user = req.user || null
+    if (!user) return res.status(401).json({ success: false, message: 'Unauthorized' })
+
+    const { data, error } = await supabase
+      .from('content_comments')
+      .select('id, content_id, user_id, comment, created_at')
+      .order('created_at', { ascending: true })
+
+    if (error) throw error
+
+    res.json({ success: true, data: data || [] })
+  } catch (error) {
+    res.status(400).json({ success: false, message: error.message })
+  }
+}
+
+// 6. İçeriğe yorum ekleme
+exports.addContentComment = async (req, res) => {
+  try {
+    const user = req.user || null
+    if (!user) return res.status(401).json({ success: false, message: 'Unauthorized' })
+
+    const { id } = req.params
+    const comment = String(req.body?.comment || '').trim()
+
+    if (!comment) {
+      return res.status(400).json({ success: false, message: 'Yorum boş olamaz' })
+    }
+
+    if (comment.length > 1000) {
+      return res.status(400).json({ success: false, message: 'Yorum en fazla 1000 karakter olabilir' })
+    }
+
+    const { data: contentExists, error: contentError } = await supabase
+      .from('contents')
+      .select('id')
+      .eq('id', id)
+      .single()
+
+    if (contentError || !contentExists) {
+      return res.status(404).json({ success: false, message: 'İçerik bulunamadı' })
+    }
+
+    const { data, error } = await supabase
+      .from('content_comments')
+      .insert([{ content_id: id, user_id: user.id, comment }])
+      .select('id, content_id, user_id, comment, created_at')
+
+    if (error) throw error
+
+    res.status(201).json({ success: true, message: 'Yorum eklendi', data })
+  } catch (error) {
+    res.status(400).json({ success: false, message: error.message })
+  }
+}

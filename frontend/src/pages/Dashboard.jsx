@@ -27,6 +27,9 @@ export default function Dashboard(){
   const [editingAssignedValue, setEditingAssignedValue] = useState('')
   const [revisionEditingId, setRevisionEditingId] = useState(null)
   const [revisionEditingValue, setRevisionEditingValue] = useState('')
+  const [commentsByContent, setCommentsByContent] = useState({})
+  const [commentInputs, setCommentInputs] = useState({})
+  const [commentLoadingByContent, setCommentLoadingByContent] = useState({})
   const [collapsedCategories, setCollapsedCategories] = useState({
     'Paylaşıldı': true,
     'İptal': true
@@ -81,6 +84,7 @@ export default function Dashboard(){
 
       // Fetch users map for both admins and regular users
       fetchUsersMap()
+      fetchComments()
     } catch (err) {
       if (!mountedRef.current) return
       console.error('=== FETCH CONTENTS ERROR ===')
@@ -101,6 +105,43 @@ export default function Dashboard(){
       if (mountedRef.current) setLoading(false)
     } finally {
       if (!mountedRef.current) return
+    }
+  }
+
+  const fetchComments = async () => {
+    try {
+      const res = await api.get('/contents/comments')
+      if (!mountedRef.current) return
+
+      const grouped = (res.data.data || []).reduce((acc, row) => {
+        if (!acc[row.content_id]) acc[row.content_id] = []
+        acc[row.content_id].push(row)
+        return acc
+      }, {})
+
+      setCommentsByContent(grouped)
+    } catch (err) {
+      if (!mountedRef.current) return
+      if (err.response?.status !== 401) {
+        showToast(err.response?.data?.message || 'Yorumlar yüklenemedi', 'error', 2000)
+      }
+    }
+  }
+
+  const submitComment = async (contentId) => {
+    const comment = String(commentInputs[contentId] || '').trim()
+    if (!comment) return
+
+    setCommentLoadingByContent(prev => ({ ...prev, [contentId]: true }))
+    try {
+      await api.post(`/contents/${contentId}/comments`, { comment })
+      setCommentInputs(prev => ({ ...prev, [contentId]: '' }))
+      await fetchComments()
+      showToast('Yorum eklendi', 'success', 1500)
+    } catch (err) {
+      showToast(err.response?.data?.message || err.message || 'Yorum eklenemedi', 'error', 2000)
+    } finally {
+      setCommentLoadingByContent(prev => ({ ...prev, [contentId]: false }))
     }
   }
 
@@ -148,6 +189,8 @@ export default function Dashboard(){
   const approvedContents = contents.filter(c =>
     c.status === 'Yapıldı' && c.admin_approved
   )
+
+  const myAssignedContents = contents.filter(c => c.assigned_to === currentUserId)
 
   const assignmentSummary = Object.values(
     contents.reduce((acc, item) => {
@@ -310,6 +353,14 @@ export default function Dashboard(){
               </span>
             )}
           </button>
+          {isAdmin && (
+            <button
+              onClick={() => setAdminTab('assigned')}
+              className={`px-4 py-2 rounded ${adminTab === 'assigned' ? 'bg-blue-600 text-white' : 'bg-gray-200'}`}
+            >
+              Bana Atananlar
+            </button>
+          )}
         </div>
       )}
 
@@ -327,6 +378,15 @@ export default function Dashboard(){
             <ContentList contents={approvedContents} usersMap={usersMap} currentUserId={currentUserId} onUpdated={fetchContents} />
           ) : (
             <p className="text-gray-500">Onaylanan içerik yok.</p>
+          )}
+        </div>
+      ) : adminTab === 'assigned' && isAdmin ? (
+        <div>
+          <h3 className="text-lg font-semibold mb-4">Bana Atanan İçerikler</h3>
+          {myAssignedContents.length > 0 ? (
+            <ContentList contents={myAssignedContents} usersMap={usersMap} currentUserId={currentUserId} onUpdated={fetchContents} />
+          ) : (
+            <p className="text-gray-500">Size atanmış içerik yok.</p>
           )}
         </div>
       ) : (
@@ -454,6 +514,7 @@ export default function Dashboard(){
                       <div className="grid gap-3">
                       {items.map(item => {
                         const assignedEmail = usersMap[item.assigned_to] || item.assigned_to || '—'
+                        const contentComments = commentsByContent[item.id] || []
                         const canEdit = isAdmin || (currentUserId && item.assigned_to === currentUserId && item.status !== 'İptal')
                         const isCancelled = item.status === 'İptal'
                         return (
@@ -720,6 +781,48 @@ export default function Dashboard(){
                                 )}
                               </div>
                             )}
+
+                            <div className="mt-3 pt-3 border-t border-gray-200">
+                              <div className="text-xs font-semibold text-gray-700 mb-2">Yorumlar</div>
+                              {contentComments.length > 0 ? (
+                                <div className="space-y-2 mb-2">
+                                  {contentComments.map((commentRow) => {
+                                    const commenterName = usersMap[commentRow.user_id] || commentRow.user_id || 'Kullanıcı'
+                                    return (
+                                      <div key={commentRow.id} className="bg-gray-50 border border-gray-200 rounded p-2 text-xs">
+                                        <div className="font-semibold text-gray-800">{commenterName}</div>
+                                        <div className="text-gray-700 mt-1 whitespace-pre-wrap">{commentRow.comment}</div>
+                                      </div>
+                                    )
+                                  })}
+                                </div>
+                              ) : (
+                                <p className="text-xs text-gray-500 mb-2">Henüz yorum yok.</p>
+                              )}
+
+                              <div className="flex gap-2">
+                                <input
+                                  type="text"
+                                  value={commentInputs[item.id] || ''}
+                                  onChange={(e) => setCommentInputs(prev => ({ ...prev, [item.id]: e.target.value }))}
+                                  placeholder="Yorum yaz (örn: eksik içerik)"
+                                  className="flex-1 p-2 border rounded text-xs"
+                                  onKeyDown={(e) => {
+                                    if (e.key === 'Enter') {
+                                      e.preventDefault()
+                                      submitComment(item.id)
+                                    }
+                                  }}
+                                />
+                                <button
+                                  onClick={() => submitComment(item.id)}
+                                  disabled={commentLoadingByContent[item.id]}
+                                  className="px-3 py-1 bg-blue-600 text-white rounded text-xs hover:bg-blue-700 disabled:opacity-50"
+                                >
+                                  {commentLoadingByContent[item.id] ? '...' : 'Yorum'}
+                                </button>
+                              </div>
+                            </div>
                           </div>
                         )
                       })}
