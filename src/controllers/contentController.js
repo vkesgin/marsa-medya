@@ -1,5 +1,23 @@
 const supabase = require('../config/supabase');
 
+const createNotificationSafe = async ({ userId, contentId = null, type, title, message }) => {
+  try {
+    if (!userId || !title || !message) return
+    await supabase.from('notifications').insert([
+      {
+        user_id: userId,
+        content_id: contentId,
+        type: type || 'info',
+        title,
+        message,
+        is_read: false
+      }
+    ])
+  } catch (error) {
+    console.warn('Notification insert skipped:', error.message)
+  }
+}
+
 // 1. Tüm İçerikleri Listeleme İşlemi
 exports.getContents = async (req, res) => {
   try {
@@ -57,6 +75,16 @@ exports.createContent = async (req, res) => {
       .select()
 
     if (error) throw error
+
+    if (assigned_to) {
+      await createNotificationSafe({
+        userId: assigned_to,
+        contentId: data?.[0]?.id || null,
+        type: 'assignment',
+        title: 'Yeni iş atandı',
+        message: `${company} içeriği size atandı.`
+      })
+    }
 
     res.status(201).json({ success: true, message: 'İçerik başarıyla planlandı!', data: data })
   } catch (error) {
@@ -129,7 +157,52 @@ exports.updateContent = async (req, res) => {
       throw error
     }
 
-    res.json({ success: true, data })
+    const updatedItem = data?.[0]
+
+    if (assigned_to !== undefined && assigned_to && assigned_to !== existing.assigned_to) {
+      await createNotificationSafe({
+        userId: assigned_to,
+        contentId: id,
+        type: 'assignment',
+        title: 'Yeni iş atandı',
+        message: `${existing.company || 'Bir içerik'} size atandı.`
+      })
+    }
+
+    const notifyUserId = existing?.assigned_to
+    if (notifyUserId && notifyUserId !== user.id) {
+      if (status !== undefined && status !== existing.status) {
+        await createNotificationSafe({
+          userId: notifyUserId,
+          contentId: id,
+          type: 'status',
+          title: 'İçerik durumu güncellendi',
+          message: `${existing.company || 'İçerik'} durumu "${status}" olarak değiştirildi.`
+        })
+      }
+
+      if (revision_notes !== undefined && revision_notes && revision_notes !== existing.revision_notes) {
+        await createNotificationSafe({
+          userId: notifyUserId,
+          contentId: id,
+          type: 'revision',
+          title: 'Revize notu eklendi',
+          message: `${existing.company || 'İçerik'} için revize notu bırakıldı.`
+        })
+      }
+
+      if (admin_approved !== undefined && admin_approved !== existing.admin_approved) {
+        await createNotificationSafe({
+          userId: notifyUserId,
+          contentId: id,
+          type: 'approval',
+          title: admin_approved ? 'İçerik onaylandı' : 'İçerik onayı geri alındı',
+          message: `${existing.company || 'İçerik'} için onay durumu güncellendi.`
+        })
+      }
+    }
+
+    res.json({ success: true, data: updatedItem ? [updatedItem] : data })
   } catch (error) {
     res.status(400).json({ success: false, message: error.message })
   }
@@ -275,7 +348,7 @@ exports.addContentComment = async (req, res) => {
 
     const { data: contentExists, error: contentError } = await supabase
       .from('contents')
-      .select('id')
+      .select('id, company, assigned_to')
       .eq('id', id)
       .single()
 
@@ -289,6 +362,16 @@ exports.addContentComment = async (req, res) => {
       .select('id, content_id, user_id, comment, created_at')
 
     if (error) throw error
+
+    if (contentExists?.assigned_to && contentExists.assigned_to !== user.id) {
+      await createNotificationSafe({
+        userId: contentExists.assigned_to,
+        contentId: id,
+        type: 'comment',
+        title: 'İçeriğe yeni yorum eklendi',
+        message: `${contentExists.company || 'İçerik'} için yeni bir yorum var.`
+      })
+    }
 
     res.status(201).json({ success: true, message: 'Yorum eklendi', data })
   } catch (error) {

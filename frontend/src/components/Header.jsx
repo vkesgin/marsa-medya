@@ -1,13 +1,68 @@
-import React from 'react'
+import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { showToast } from '../utils/toast'
+import api from '../services/api'
 
 export default function Header(){
   const navigate = useNavigate()
+  const panelRef = useRef(null)
   const user = JSON.parse(localStorage.getItem('user') || 'null')
   const email = user?.email || 'Anon'
   const isAdmin = localStorage.getItem('isAdmin') === '1'
   const isSuperAdmin = localStorage.getItem('isSuperAdmin') === '1'
+  const [notifications, setNotifications] = useState([])
+  const [notificationsOpen, setNotificationsOpen] = useState(false)
+
+  const unreadCount = useMemo(
+    () => notifications.filter(item => !item.is_read).length,
+    [notifications]
+  )
+
+  const fetchNotifications = async () => {
+    try {
+      const res = await api.get('/notifications')
+      setNotifications(res.data.data || [])
+    } catch (err) {
+      if (err.response?.status !== 401) {
+        console.error('Notification fetch error:', err.response?.data?.message || err.message)
+      }
+    }
+  }
+
+  useEffect(() => {
+    fetchNotifications()
+    const intervalId = setInterval(fetchNotifications, 20000)
+    return () => clearInterval(intervalId)
+  }, [])
+
+  useEffect(() => {
+    const onDocClick = (event) => {
+      if (panelRef.current && !panelRef.current.contains(event.target)) {
+        setNotificationsOpen(false)
+      }
+    }
+
+    document.addEventListener('mousedown', onDocClick)
+    return () => document.removeEventListener('mousedown', onDocClick)
+  }, [])
+
+  const markOneRead = async (notificationId) => {
+    try {
+      await api.patch(`/notifications/${notificationId}/read`)
+      setNotifications(prev => prev.map(item => item.id === notificationId ? { ...item, is_read: true } : item))
+    } catch (err) {
+      showToast(err.response?.data?.message || 'Bildirim güncellenemedi', 'error', 1500)
+    }
+  }
+
+  const markAllRead = async () => {
+    try {
+      await api.patch('/notifications/read-all')
+      setNotifications(prev => prev.map(item => ({ ...item, is_read: true })))
+    } catch (err) {
+      showToast(err.response?.data?.message || 'Bildirimler güncellenemedi', 'error', 1500)
+    }
+  }
 
   const logout = ()=>{
     localStorage.removeItem('sb_access_token')
@@ -26,7 +81,59 @@ export default function Header(){
         <h1 className="text-xl font-semibold">MarsaMedya</h1>
         <p className="text-sm text-gray-600">{email}</p>
       </div>
-      <div className="flex items-center gap-2 flex-wrap">
+      <div className="flex items-center gap-2 flex-wrap relative" ref={panelRef}>
+        <button
+          onClick={() => setNotificationsOpen(prev => !prev)}
+          className="px-3 py-1 bg-white border border-gray-300 rounded text-sm hover:bg-gray-50 relative"
+          title="Bildirimler"
+        >
+          🔔
+          {unreadCount > 0 && (
+            <span className="absolute -top-2 -right-2 bg-red-600 text-white rounded-full min-w-5 h-5 px-1 text-xs flex items-center justify-center">
+              {unreadCount > 99 ? '99+' : unreadCount}
+            </span>
+          )}
+        </button>
+
+        {notificationsOpen && (
+          <div className="absolute right-0 top-10 w-96 max-h-96 overflow-auto bg-white border border-gray-200 rounded-lg shadow-lg z-50">
+            <div className="p-3 border-b flex justify-between items-center">
+              <h3 className="font-semibold text-sm">Bildirimler</h3>
+              <button onClick={markAllRead} className="text-xs text-blue-600 hover:underline">Tümünü okundu yap</button>
+            </div>
+            <div className="p-2 space-y-2">
+              {notifications.length === 0 ? (
+                <p className="text-xs text-gray-500 p-2">Henüz bildiriminiz yok.</p>
+              ) : (
+                notifications.map(item => (
+                  <div
+                    key={item.id}
+                    className={`p-2 rounded border text-xs ${item.is_read ? 'bg-gray-50 border-gray-200' : 'bg-blue-50 border-blue-200'}`}
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex-1">
+                        <div className="font-semibold text-gray-800">{item.title}</div>
+                        <div className="text-gray-700 mt-1">{item.message}</div>
+                        <div className="text-[11px] text-gray-500 mt-1">
+                          {new Date(item.created_at).toLocaleString('tr-TR')}
+                        </div>
+                      </div>
+                      {!item.is_read && (
+                        <button
+                          onClick={() => markOneRead(item.id)}
+                          className="text-[11px] text-blue-600 hover:underline whitespace-nowrap"
+                        >
+                          Okundu
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        )}
+
         <button onClick={()=>navigate('/profile')} className="px-3 py-1 bg-blue-600 text-white rounded text-sm hover:bg-blue-700">Profil</button>
         {isSuperAdmin && (
           <button onClick={()=>navigate('/users')} className="px-3 py-1 bg-indigo-600 text-white rounded text-sm hover:bg-indigo-700">Kullanıcılar</button>

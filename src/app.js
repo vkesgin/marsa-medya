@@ -7,6 +7,7 @@ const authMiddleware = require('./middlewares/auth')
 const contentRoutes = require('./routes/contentRoutes')
 const authRoutes = require('./routes/authRoutes')
 const userRoutes = require('./routes/userRoutes')
+const notificationRoutes = require('./routes/notificationRoutes')
 
 const app = express()
 
@@ -30,6 +31,7 @@ app.use(authMiddleware)
 app.use('/api/auth', authRoutes)
 app.use('/api/contents', contentRoutes)
 app.use('/api/users', userRoutes)
+app.use('/api/notifications', notificationRoutes)
 
 // basic health
 app.get('/health', (req, res) => res.json({ ok: true }))

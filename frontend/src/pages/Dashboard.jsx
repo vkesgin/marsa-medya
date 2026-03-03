@@ -14,7 +14,11 @@ export default function Dashboard(){
   const [openModal, setOpenModal] = useState(false)
   const [usersMap, setUsersMap] = useState({})
   const [filterStatus, setFilterStatus] = useState('Tümü')
-  const [assignmentFilter, setAssignmentFilter] = useState('Tümü')
+  const [assignmentFilter, setAssignmentFilter] = useState(() => {
+    const admin = localStorage.getItem('isAdmin') === '1'
+    const approver = localStorage.getItem('isApprover') === '1'
+    return admin || approver ? 'Tümü' : 'Bana Atananlar'
+  })
   const [query, setQuery] = useState('')
   const [adminTab, setAdminTab] = useState('content')
   const [descriptionModalOpen, setDescriptionModalOpen] = useState(false)
