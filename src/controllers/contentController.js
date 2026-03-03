@@ -295,3 +295,89 @@ exports.addContentComment = async (req, res) => {
     res.status(400).json({ success: false, message: error.message })
   }
 }
+
+// 7. Yorum düzenleme
+exports.updateContentComment = async (req, res) => {
+  try {
+    const user = req.user || null
+    if (!user) return res.status(401).json({ success: false, message: 'Unauthorized' })
+
+    const { commentId } = req.params
+    const comment = String(req.body?.comment || '').trim()
+
+    if (!comment) {
+      return res.status(400).json({ success: false, message: 'Yorum boş olamaz' })
+    }
+
+    if (comment.length > 1000) {
+      return res.status(400).json({ success: false, message: 'Yorum en fazla 1000 karakter olabilir' })
+    }
+
+    const { data: existing, error: fetchError } = await supabase
+      .from('content_comments')
+      .select('user_id')
+      .eq('id', commentId)
+      .single()
+
+    if (fetchError || !existing) {
+      return res.status(404).json({ success: false, message: 'Yorum bulunamadı' })
+    }
+
+    const userEmail = user?.email
+    const isSuperAdmin = userEmail === 'veli@marmosium.com' || user?.user_metadata?.role === 'super_admin'
+
+    if (existing.user_id !== user.id && !isSuperAdmin) {
+      return res.status(403).json({ success: false, message: 'Bu yorumu düzenleme yetkiniz yok' })
+    }
+
+    const { data, error } = await supabase
+      .from('content_comments')
+      .update({ comment })
+      .eq('id', commentId)
+      .select('id, content_id, user_id, comment, created_at')
+
+    if (error) throw error
+
+    res.json({ success: true, message: 'Yorum güncellendi', data })
+  } catch (error) {
+    res.status(400).json({ success: false, message: error.message })
+  }
+}
+
+// 8. Yorum silme
+exports.deleteContentComment = async (req, res) => {
+  try {
+    const user = req.user || null
+    if (!user) return res.status(401).json({ success: false, message: 'Unauthorized' })
+
+    const { commentId } = req.params
+
+    const { data: existing, error: fetchError } = await supabase
+      .from('content_comments')
+      .select('user_id')
+      .eq('id', commentId)
+      .single()
+
+    if (fetchError || !existing) {
+      return res.status(404).json({ success: false, message: 'Yorum bulunamadı' })
+    }
+
+    const userEmail = user?.email
+    const isSuperAdmin = userEmail === 'veli@marmosium.com' || user?.user_metadata?.role === 'super_admin'
+
+    if (existing.user_id !== user.id && !isSuperAdmin) {
+      return res.status(403).json({ success: false, message: 'Bu yorumu silme yetkiniz yok' })
+    }
+
+    const { error } = await supabase
+      .from('content_comments')
+      .delete()
+      .eq('id', commentId)
+
+    if (error) throw error
+
+    res.json({ success: true, message: 'Yorum silindi' })
+  } catch (error) {
+    res.status(400).json({ success: false, message: error.message })
+  }
+}

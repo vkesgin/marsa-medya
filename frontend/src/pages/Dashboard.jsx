@@ -30,6 +30,8 @@ export default function Dashboard(){
   const [commentsByContent, setCommentsByContent] = useState({})
   const [commentInputs, setCommentInputs] = useState({})
   const [commentLoadingByContent, setCommentLoadingByContent] = useState({})
+  const [editingCommentId, setEditingCommentId] = useState(null)
+  const [editingCommentValue, setEditingCommentValue] = useState('')
   const [collapsedCategories, setCollapsedCategories] = useState({
     'Paylaşıldı': true,
     'İptal': true
@@ -142,6 +144,33 @@ export default function Dashboard(){
       showToast(err.response?.data?.message || err.message || 'Yorum eklenemedi', 'error', 2000)
     } finally {
       setCommentLoadingByContent(prev => ({ ...prev, [contentId]: false }))
+    }
+  }
+
+  const updateComment = async (contentId, commentId) => {
+    const comment = String(editingCommentValue || '').trim()
+    if (!comment) return
+
+    try {
+      await api.patch(`/contents/${contentId}/comments/${commentId}`, { comment })
+      setEditingCommentId(null)
+      setEditingCommentValue('')
+      await fetchComments()
+      showToast('Yorum güncellendi', 'success', 1500)
+    } catch (err) {
+      showToast(err.response?.data?.message || err.message || 'Yorum güncellenemedi', 'error', 2000)
+    }
+  }
+
+  const deleteComment = async (contentId, commentId) => {
+    if (!window.confirm('Bu yorumu silmek istediğinize emin misiniz?')) return
+
+    try {
+      await api.delete(`/contents/${contentId}/comments/${commentId}`)
+      await fetchComments()
+      showToast('Yorum silindi', 'success', 1500)
+    } catch (err) {
+      showToast(err.response?.data?.message || err.message || 'Yorum silinemedi', 'error', 2000)
     }
   }
 
@@ -788,10 +817,69 @@ export default function Dashboard(){
                                 <div className="space-y-2 mb-2">
                                   {contentComments.map((commentRow) => {
                                     const commenterName = usersMap[commentRow.user_id] || commentRow.user_id || 'Kullanıcı'
+                                    const isOwnComment = commentRow.user_id === currentUserId
+                                    const canManageComment = isOwnComment || isSuperAdmin
+                                    
                                     return (
                                       <div key={commentRow.id} className="bg-gray-50 border border-gray-200 rounded p-2 text-xs">
-                                        <div className="font-semibold text-gray-800">{commenterName}</div>
-                                        <div className="text-gray-700 mt-1 whitespace-pre-wrap">{commentRow.comment}</div>
+                                        {editingCommentId === commentRow.id ? (
+                                          <div>
+                                            <textarea
+                                              value={editingCommentValue}
+                                              onChange={(e) => setEditingCommentValue(e.target.value)}
+                                              className="w-full p-2 border rounded text-xs mb-2"
+                                              rows="3"
+                                              autoFocus
+                                            />
+                                            <div className="flex gap-2">
+                                              <button
+                                                onClick={() => updateComment(item.id, commentRow.id)}
+                                                className="px-2 py-1 bg-green-500 text-white rounded text-xs hover:bg-green-600"
+                                              >
+                                                Kaydet
+                                              </button>
+                                              <button
+                                                onClick={() => {
+                                                  setEditingCommentId(null)
+                                                  setEditingCommentValue('')
+                                                }}
+                                                className="px-2 py-1 bg-gray-400 text-white rounded text-xs hover:bg-gray-500"
+                                              >
+                                                İptal
+                                              </button>
+                                            </div>
+                                          </div>
+                                        ) : (
+                                          <div>
+                                            <div className="flex justify-between items-start mb-1">
+                                              <div className="font-semibold text-gray-800">{commenterName}</div>
+                                              {canManageComment && (
+                                                <div className="flex gap-1">
+                                                  {isOwnComment && (
+                                                    <button
+                                                      onClick={() => {
+                                                        setEditingCommentId(commentRow.id)
+                                                        setEditingCommentValue(commentRow.comment)
+                                                      }}
+                                                      className="text-blue-600 hover:text-blue-800"
+                                                      title="Düzenle"
+                                                    >
+                                                      ✏️
+                                                    </button>
+                                                  )}
+                                                  <button
+                                                    onClick={() => deleteComment(item.id, commentRow.id)}
+                                                    className="text-red-600 hover:text-red-800"
+                                                    title="Sil"
+                                                  >
+                                                    🗑️
+                                                  </button>
+                                                </div>
+                                              )}
+                                            </div>
+                                            <div className="text-gray-700 mt-1 whitespace-pre-wrap">{commentRow.comment}</div>
+                                          </div>
+                                        )}
                                       </div>
                                     )
                                   })}
